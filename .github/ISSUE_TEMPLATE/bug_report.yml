@@ -1,0 +1,93 @@
+name: 🐞 Issue Report
+description: Report an issue in Musify
+title: '[Bug] <title>'
+labels: "type: bug"
+assignees:
+  - gokadzev
+
+body:
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements
+      description: Please make sure you have completed these steps before submitting the issue.
+      options:
+        - label: I have searched the existing issues and confirmed that this is a new issue, not a duplicate or related to another open issue.
+          required: true
+        - label: I have written a short but informative title.
+          required: true
+        - label: I have updated the app to the latest version. You can find the latest version [here](https://github.com/gokadzev/Musify/releases).
+          required: true
+        - label: I will fill out all the sections in this issue report.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Current Behavior
+      description: Provide a concise description of what you're experiencing.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: Provide a concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Describe the steps to reproduce the behavior. Please provide clear instructions.
+      placeholder: |
+        Example:
+          1. First step
+          2. Second step
+          3. Issue occurs here
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: Musify Version
+      description: Mention the version of Musify in which you encountered this bug.
+      placeholder: e.g., v7.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: device-and-os
+    attributes:
+      label: Device And Operating System
+      description: Mention the device name and the version of your operating system where you're experiencing the bug.
+      placeholder: e.g., Xiaomi 12T Pro (MIUI 14)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: android-version
+    attributes:
+      label: Android Version You Use
+      options:
+        - Android 14
+        - Android 13
+        - Android 12L
+        - Android 12
+        - Android 11
+        - Android 10
+        - Android 9 (Pie)
+        - Android 8.1 (Oreo)
+        - Android 8 (Oreo)
+        - Android 7 (Nougat)
+        - Android 6 (Marshmallow)
+        - Android 5.1 (Lollipop)
+        - Android 5 (Lollipop)
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional Information
+      description: Add any additional information or context that may be helpful in resolving the issue.
+    validations:
+      required: false

@@ -1,0 +1,97 @@
+{
+  "ar": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "de": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "el": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "es": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "fr": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "it": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "ka": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "pl": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "pt": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "ru": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "tr": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ],
+
+  "uk": [
+    "checkupdate",
+    "noupdate",
+    "updateAvailable",
+    "updateDescription",
+    "install"
+  ]
+}
