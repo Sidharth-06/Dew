@@ -32,12 +32,12 @@ import 'package:Dew/utilities/url_launcher.dart';
 import 'package:Dew/widgets/auto_format_text.dart';
 
 const String checkUrl =
-    'https://raw.githubusercontent.com/gokadzev/Musify/update/check.json';
+    'https://raw.githubusercontent.com/Sidharth-06/Dew/update/check.json';
 const String releasesUrl =
-    'https://api.github.com/repos/gokadzev/Musify/releases/latest';
+    'https://api.github.com/repos/Sidharth-06/Dew/releases/latest';
 const String downloadUrlKey = 'url';
 const String downloadUrlArm64Key = 'arm64url';
-const String downloadFilename = 'Musify.apk';
+const String downloadFilename = 'Dew.apk';
 
 Future<void> checkAppUpdates() async {
   try {
