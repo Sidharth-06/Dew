@@ -1,0 +1,33 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:-options' 
+}
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
+
+subprojects { project ->
+  // for every Android library without a namespace, give it one
+  project.plugins.withId('com.android.library') {
+    project.extensions.configure(com.android.build.gradle.LibraryExtension) { libExt ->
+      if (libExt.namespace == null || libExt.namespace.trim().isEmpty()) {
+        // use your app’s package root + the plugin name
+        libExt.namespace = "com.dew.${project.name}"
+      }
+    }
+  }
+}

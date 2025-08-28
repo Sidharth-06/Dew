@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1072526135503",
+    "firebase_url": "https://strange-9cc78-default-rtdb.firebaseio.com",
+    "project_id": "strange-9cc78",
+    "storage_bucket": "strange-9cc78.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1072526135503:android:7f6a8396e21acbd80e27ba",
+        "android_client_info": {
+          "package_name": "com.sidh.dew"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1072526135503-dqc1k25h02alastcb7lmb7mnjda592om.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAL5Ml-JQyNc-REwwcIzfp5Q7WmGUuwSqs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1072526135503-dqc1k25h02alastcb7lmb7mnjda592om.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
