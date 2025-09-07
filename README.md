@@ -1,7 +1,7 @@
 # 🎶 Dew — Music Beyond Playback
 
 <div align="center">
-  <img src="docs/banner.png" alt="Dew Banner" width="800"/>
+  <img src="assets/icon.png" alt="Dew Banner" width="800"/>
   
   ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
   ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
@@ -167,3 +167,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
     <a href="#-dew--music-beyond-playback">Back to top</a>
   </p>
 </div>
+
