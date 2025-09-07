@@ -35,6 +35,8 @@ migrate_working_dir/
 **/android/gradlew.bat
 **/android/local.properties
 **/android/**/GeneratedPluginRegistrant.java
+# Android heap dumps
+**/android/**/*.hprof
 
 # iOS related
 **/ios/**/*.mode1v3
@@ -79,3 +81,18 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Large files
+*.gif
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.hprof
+*.zip
+*.tar.gz
+*.dmg
+*.iso
+
+# Ignore entire assets folder (keeps local assets out of Git)
+assets/
