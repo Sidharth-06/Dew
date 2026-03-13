@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/* ─── Custom Font Variables ───────────────────────────── */
+:root {
+  --color-canvas: #f4f4f5;
+  --color-brand-orange: #f97316; /* Bright orange accent */
+  
+  /* Pastel Sticky Note Colors */
+  --color-sticky-yellow: #fde047; /* Brighter yellow */
+  --color-sticky-pink: #fbcfe8;
+  --color-sticky-blue: #bae6fd;
+  --color-sticky-green: #6ee7b7;
+  
+  --shadow-sticky: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1), 2px 6px 12px rgba(0,0,0,0.15);
+  --shadow-curled: 0 10px 10px -5px rgba(0,0,0,0.3);
+}
+
+/* ─── Global Styles ───────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+/* ─── Custom Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Scrapbook Utilities ─────────────────────────────── */
+.sticky-note {
+  position: relative;
+  background-color: var(--color-sticky-yellow);
+  box-shadow: var(--shadow-sticky);
+  border-bottom-right-radius: 20px 5px;
+  border-bottom-left-radius: 20px 5px;
+}
+
+.sticky-note::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  bottom: 0px;
+  right: 5px;
+  width: 50%;
+  height: 20%;
+  background: transparent;
+  box-shadow: var(--shadow-curled);
+  transform: rotate(3deg);
+}
+
+.sticky-note-pink { background-color: var(--color-sticky-pink); }
+.sticky-note-blue { background-color: var(--color-sticky-blue); }
+.sticky-note-green { background-color: var(--color-sticky-green); }
+
+.tape-strip {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 100px;
+  height: 30px;
+  background-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  /* Ragged edges via clip-path */
+  clip-path: polygon(0 5%, 10% 0, 20% 6%, 30% 0, 40% 5%, 50% 0, 60% 7%, 70% 0, 80% 4%, 90% 0, 100% 6%, 100% 95%, 90% 100%, 80% 93%, 70% 100%, 60% 96%, 50% 100%, 40% 95%, 30% 100%, 20% 94%, 10% 100%, 0 95%);
+}
+
+.torn-paper {
+  background-color: white;
+  position: relative;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.torn-paper::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background-image: radial-gradient(circle at 0% 50%, transparent 4px, white 5px);
+  background-size: 8px 16px;
+  background-position: left;
+  background-repeat: repeat-y;
+  transform: translateX(-100%);
+}
+
+.polaroid {
+  background: white;
+  padding: 12px 12px 40px 12px;
+  box-shadow: var(--shadow-sticky);
+  position: relative;
+}
+
+/* ─── Volume Range Input (Darker for Scrapbook) ───────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #333;
+  margin-top: -5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── PWA Standalone Mode ─────────────────────────────── */
+@media all and (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

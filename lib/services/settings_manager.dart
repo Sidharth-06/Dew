@@ -27,7 +27,7 @@ import 'package:dew/main.dart';
 // Preferences
 
 final playNextSongAutomatically = ValueNotifier<bool>(
-  Hive.box('settings').get('playNextSongAutomatically', defaultValue: false),
+  Hive.box('settings').get('playNextSongAutomatically', defaultValue: true),
 );
 
 final useSystemColor = ValueNotifier<bool>(
@@ -46,6 +46,10 @@ final offlineMode = ValueNotifier<bool>(
   Hive.box('settings').get('offlineMode', defaultValue: false),
 );
 
+final useProxy = ValueNotifier<bool>(
+  Hive.box('settings').get('useProxy', defaultValue: false),
+);
+
 final predictiveBack = ValueNotifier<bool>(
   Hive.box('settings').get('predictiveBack', defaultValue: false),
 );
@@ -60,6 +64,16 @@ final defaultRecommendations = ValueNotifier<bool>(
 
 final audioQualitySetting = ValueNotifier<String>(
   Hive.box('settings').get('audioQuality', defaultValue: 'high'),
+);
+
+/// Player style: 'default' (artwork) or 'video' (background video with blur)
+final playerStyleSetting = ValueNotifier<String>(
+  Hive.box('settings').get('playerStyle', defaultValue: 'default'),
+);
+
+/// Disable video playback to prioritize audio stability
+final disableVideoForStability = ValueNotifier<bool>(
+  Hive.box('settings').get('disableVideoForStability', defaultValue: false),
 );
 
 Locale languageSetting = Locale(

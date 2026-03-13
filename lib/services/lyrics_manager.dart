@@ -19,6 +19,7 @@
  *     please visit: https://github.com/gokadzev/Musify
  */
 
+import 'dart:async';
 import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 
@@ -40,25 +41,38 @@ class LyricsManager {
     String artistName,
     String title,
   ) async {
-    final uri = Uri.parse(
-      'https://www.paroles.net/${_lyricsUrl(artistName)}/paroles-${_lyricsUrl(title)}',
-    );
-    final response = await http.get(uri);
+    try {
+      final uri = Uri.parse(
+        'https://www.paroles.net/${_lyricsUrl(artistName)}/paroles-${_lyricsUrl(title)}',
+      );
+      final response = await http.get(uri).timeout(
+            const Duration(seconds: 6),
+            onTimeout: () =>
+                throw TimeoutException('paroles.net request timed out'),
+          );
 
-    if (response.statusCode == 200) {
-      final document = html_parser.parse(response.body);
-      final songTextElements = document.querySelectorAll('.song-text');
+      if (response.statusCode == 200) {
+        final document = html_parser.parse(response.body);
+        final songTextElements = document.querySelectorAll('.song-text');
 
-      if (songTextElements.isNotEmpty) {
-        final lyricsLines = songTextElements.first.text.split('\n');
-        if (lyricsLines.length > 1) {
-          lyricsLines.removeAt(0);
+        if (songTextElements.isNotEmpty) {
+          final lyricsLines = songTextElements.first.text.split('\n');
+          if (lyricsLines.length > 1) {
+            lyricsLines.removeAt(0);
 
-          final finalLyrics =
-              addCopyright(lyricsLines.join('\n'), '© www.paroles.net');
-          return _removeSpaces(finalLyrics);
+            final finalLyrics =
+                addCopyright(lyricsLines.join('\n'), '© www.paroles.net');
+            return _removeSpaces(finalLyrics);
+          }
         }
       }
+    } catch (e, st) {
+      // Network or parsing error — treat as missing lyrics instead of crashing
+      // Log via print to avoid adding extra dependencies in this small service
+      // (main logger is preferable elsewhere when available).
+      // ignore: avoid_print
+      print('LyricsManager: error fetching from paroles.net: $e');
+      return null;
     }
 
     return null;
@@ -68,21 +82,32 @@ class LyricsManager {
     String artistName,
     String title,
   ) async {
-    final uri = Uri.parse(
-      'https://www.lyricsmania.com/${_lyricsManiaUrl(title)}_lyrics_${_lyricsManiaUrl(artistName)}.html',
-    );
-    final response = await http.get(uri);
+    try {
+      final uri = Uri.parse(
+        'https://www.lyricsmania.com/${_lyricsManiaUrl(title)}_lyrics_${_lyricsManiaUrl(artistName)}.html',
+      );
+      final response = await http.get(uri).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () =>
+                throw TimeoutException('lyricsmania.com request timed out'),
+          );
 
-    if (response.statusCode == 200) {
-      final document = html_parser.parse(response.body);
-      final lyricsBodyElements = document.querySelectorAll('.lyrics-body');
+      if (response.statusCode == 200) {
+        final document = html_parser.parse(response.body);
+        final lyricsBodyElements = document.querySelectorAll('.lyrics-body');
 
-      if (lyricsBodyElements.isNotEmpty) {
-        return addCopyright(
-          lyricsBodyElements.first.text,
-          '© www.lyricsmania.com',
-        );
+        if (lyricsBodyElements.isNotEmpty) {
+          return addCopyright(
+            lyricsBodyElements.first.text,
+            '© www.lyricsmania.com',
+          );
+        }
       }
+    } catch (e, st) {
+      // Network or parsing error — return null and avoid bubbling exceptions
+      // ignore: avoid_print
+      print('LyricsManager: error fetching from lyricsmania.com: $e');
+      return null;
     }
 
     return null;

@@ -45,33 +45,96 @@ class SongArtworkWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return metadata.artUri?.scheme == 'file'
-        ? SizedBox(
-            width: size,
-            height: size,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: Image.file(
-                File(metadata.extras?['artWorkPath']),
-                fit: fit, // Use the fit parameter
+    // Prefer explicit local artwork path in extras when available
+    final extraArtwork = metadata.extras?['artWorkPath']?.toString();
+    if (extraArtwork != null && extraArtwork.isNotEmpty) {
+      final file = File(extraArtwork);
+      if (file.existsSync()) {
+        return SizedBox(
+          width: size,
+          height: size,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(borderRadius),
+            child: Image.file(
+              file,
+              fit: fit,
+            ),
+          ),
+        );
+      }
+    }
+
+    // Normalize artUri if present and valid
+    final uri = metadata.artUri;
+    final String? uriStr = uri?.toString();
+
+    if (uri != null && uriStr != null && uriStr.isNotEmpty && uriStr.toLowerCase() != 'null') {
+      // Handle file:// URIs if not already covered by extras
+      if (uri.scheme == 'file') {
+        try {
+          final path = uri.toFilePath();
+          final file = File(path);
+          if (file.existsSync()) {
+            return SizedBox(
+              width: size,
+              height: size,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(borderRadius),
+                child: Image.file(
+                  file,
+                  fit: fit,
+                ),
               ),
+            );
+          }
+        } catch (_) {
+          // Fall through to network handling
+        }
+      }
+
+      // If it's an HTTP(S) resource, try network image
+      if (uri.isScheme('http') || uri.isScheme('https')) {
+        return CachedNetworkImage(
+          width: size,
+          height: size,
+          imageUrl: uriStr,
+          imageBuilder: (context, imageProvider) => ClipRRect(
+            borderRadius: BorderRadius.circular(borderRadius),
+            child: Image(
+              image: imageProvider,
+              fit: fit,
             ),
-          )
-        : CachedNetworkImage(
-            width: size,
-            height: size,
-            imageUrl: metadata.artUri.toString(),
-            imageBuilder: (context, imageProvider) => ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: Image(
-                image: imageProvider,
-                fit: fit, // Use the fit parameter
-              ),
-            ),
-            placeholder: (context, url) => const Spinner(),
-            errorWidget: (context, url, error) => NullArtworkWidget(
-              iconSize: errorWidgetIconSize,
-            ),
-          );
+          ),
+          placeholder: (context, url) => const Spinner(),
+          errorWidget: (context, url, error) => NullArtworkWidget(
+            iconSize: errorWidgetIconSize,
+          ),
+        );
+      }
+    }
+
+    // Fallback to lowResImage in extras
+    final lowRes = metadata.extras?['lowResImage']?.toString();
+    if (lowRes != null && lowRes.isNotEmpty && lowRes.toLowerCase() != 'null') {
+      return CachedNetworkImage(
+        width: size,
+        height: size,
+        imageUrl: lowRes,
+        imageBuilder: (context, imageProvider) => ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: Image(
+            image: imageProvider,
+            fit: fit,
+          ),
+        ),
+        placeholder: (context, url) => const Spinner(),
+        errorWidget: (context, url, error) => NullArtworkWidget(
+          iconSize: errorWidgetIconSize,
+        ),
+      );
+    }
+
+    // No valid artwork found — show placeholder
+    return NullArtworkWidget(iconSize: errorWidgetIconSize, size: size);
   }
 }

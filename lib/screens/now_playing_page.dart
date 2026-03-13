@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:math';
+
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:dew/API/musify.dart';
@@ -16,31 +17,14 @@ import 'package:dew/widgets/spinner.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_lyric/lyrics_reader.dart';
-import 'package:flutter_lyric/lyrics_reader_model.dart';
+
 // ignore: depend_on_referenced_packages
 import 'package:headset_connection_event/headset_event.dart';
 import 'package:mic_stream/mic_stream.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-/// Model representing a single lyric line with timing and flags.
-class LyricLine {
-  final String text;
-  final Duration startTime;
-  final Duration endTime;
-  final bool isChorus;
-  final bool isVerse;
-  final bool isEmpty;
-
-  LyricLine({
-    required this.text,
-    required this.startTime,
-    required this.endTime,
-    this.isChorus = false,
-    this.isVerse = false,
-    this.isEmpty = false,
-  });
-}
+import 'package:video_player/video_player.dart';
+import 'package:dew/services/settings_manager.dart';
+import 'package:dew/widgets/spotify_lyrics_view.dart';
 
 /// Plays a suggested song by invoking the audio handler.
 Future<void> playSuggestedSong(Map<String, dynamic> suggestion) async {
@@ -90,188 +74,8 @@ class NowPlayingPage extends StatefulWidget {
 
 class _NowPlayingPageState extends State<NowPlayingPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  late LyricsReaderModel _lyricsModel;
   late AnimationController _volumeAnimationController;
   late Animation<double> _volumeAnimation;
-
-  List<LyricLine> _createSmartLyricsSync(
-      String plainLyrics, Duration songDuration) {
-    final lines = plainLyrics
-        .split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .map((l) => l.trim())
-        .toList();
-
-    if (lines.isEmpty) return [];
-
-    final processedLines = <LyricLine>[];
-    final totalSeconds = songDuration.inSeconds;
-
-    // Analyze song structure
-    final analysisResult = _analyzeSongStructure(lines, totalSeconds);
-
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final timing = analysisResult[i];
-
-      processedLines.add(LyricLine(
-        text: line,
-        startTime: Duration(milliseconds: timing['start']),
-        endTime: Duration(milliseconds: timing['end']),
-        isChorus: timing['isChorus'],
-        isVerse: timing['isVerse'],
-        isEmpty: line.trim().isEmpty,
-      ));
-    }
-
-    return processedLines;
-  }
-
-  List<Map<String, dynamic>> _analyzeSongStructure(
-      List<String> lines, int totalSeconds) {
-    final result = <Map<String, dynamic>>[];
-    // Common song structure timing (in percentages)
-    final songSections = [
-      {
-        'name': 'intro',
-        'start': 0.0,
-        'end': 0.08,
-        'speed': 1.2
-      }, // Slower intro
-      {'name': 'verse1', 'start': 0.08, 'end': 0.25, 'speed': 1.0},
-      {
-        'name': 'chorus1',
-        'start': 0.25,
-        'end': 0.40,
-        'speed': 0.9
-      }, // Faster chorus
-      {'name': 'verse2', 'start': 0.40, 'end': 0.55, 'speed': 1.0},
-      {'name': 'chorus2', 'start': 0.55, 'end': 0.70, 'speed': 0.9},
-      {
-        'name': 'bridge',
-        'start': 0.70,
-        'end': 0.85,
-        'speed': 1.1
-      }, // Slower bridge
-      {
-        'name': 'chorus3',
-        'start': 0.85,
-        'end': 1.0,
-        'speed': 0.85
-      }, // Final chorus
-    ];
-
-    // Detect repeating patterns (chorus detection)
-    final chorusLines = _detectChorus(lines);
-
-    // Calculate timing for each line
-    int currentSectionIndex = 0;
-
-    for (int i = 0; i < lines.length; i++) {
-      // Determine which section we're in
-      final sectionProgress = i / lines.length;
-
-      // Find appropriate section
-      while (currentSectionIndex < songSections.length - 1 &&
-          sectionProgress > (songSections[currentSectionIndex]['end'] as num)) {
-        currentSectionIndex++;
-      }
-
-      final currentSection = songSections[currentSectionIndex];
-      final sectionStart =
-          (totalSeconds * (currentSection['start'] as num)).round();
-      final sectionEnd =
-          (totalSeconds * (currentSection['end'] as num)).round();
-      final sectionDuration = sectionEnd - sectionStart;
-
-      // Calculate line timing within section
-      final lineProgress = (sectionProgress -
-              (currentSection['start'] as num)) /
-          ((currentSection['end'] as num) - (currentSection['start'] as num));
-
-      // Adjust timing based on line characteristics
-      double speedMultiplier = currentSection['speed'] as double;
-      final line = lines[i].toLowerCase();
-
-      // Shorter lines = faster timing
-      if (line.length < 20) speedMultiplier *= 0.8;
-      if (line.length > 60) speedMultiplier *= 1.3;
-
-      // Detect emotional/climactic lines (usually longer duration)
-      if (line.contains('love') ||
-          line.contains('heart') ||
-          line.contains('forever')) {
-        speedMultiplier *= 1.2;
-      }
-
-      // Calculate actual timings
-      final lineStartMs =
-          (sectionStart * 1000 + (lineProgress * sectionDuration * 1000))
-              .round();
-      final baseDuration =
-          (line.length * 80 * speedMultiplier).round(); // ~80ms per character
-      final lineEndMs = (lineStartMs + baseDuration)
-          .clamp(lineStartMs + 1000, totalSeconds * 1000);
-
-      result.add({
-        'start': lineStartMs,
-        'end': lineEndMs,
-        'isChorus': chorusLines.contains(i),
-        'isVerse':
-            ((currentSection['name'] as String?)?.contains('verse') ?? false),
-        'section': currentSection['name'],
-      });
-    }
-
-    return result;
-  }
-
-  Set<int> _detectChorus(List<String> lines) {
-    final chorusIndices = <int>{};
-    final lineCounts = <String, List<int>>{};
-
-    // Count line repetitions
-    for (int i = 0; i < lines.length; i++) {
-      final cleanLine =
-          lines[i].toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-      if (cleanLine.length > 10) {
-        // Only consider substantial lines
-        lineCounts.putIfAbsent(cleanLine, () => []).add(i);
-      }
-    }
-
-    // Lines that appear 2+ times are likely chorus
-    lineCounts.forEach((line, indices) {
-      if (indices.length >= 2) {
-        chorusIndices.addAll(indices);
-      }
-    });
-
-    return chorusIndices;
-  }
-
-  void _startLyricsTimer() {
-    _lyricsTimer?.cancel();
-    _lyricsTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_processedLyrics.isNotEmpty) {
-        final currentPosition = audioHandler.playbackState.value.position;
-
-        // Find current lyric index
-        for (int i = 0; i < _processedLyrics.length; i++) {
-          final lyric = _processedLyrics[i];
-          if (currentPosition >= lyric.startTime &&
-              currentPosition < lyric.endTime) {
-            if (_currentLyricIndex.value != i) {
-              _currentLyricIndex.value = i;
-            }
-            break;
-          }
-        }
-      }
-    });
-  }
-
-  ValueNotifier<bool> _highlightLyrics = ValueNotifier<bool>(true);
 
   // Simplified Enhanced Listening - Volume Control Only
   ValueNotifier<bool> _enableSmartVolume = ValueNotifier<bool>(false);
@@ -288,9 +92,11 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   double _baseVolume = 0.8; // User's preferred volume
   double _targetVolume = 0.8; // AI-adjusted target volume
 
-  Timer? _lyricsTimer;
-  ValueNotifier<int> _currentLyricIndex = ValueNotifier<int>(0);
-  List<LyricLine> _processedLyrics = [];
+  // Background video (player style)
+  VideoPlayerController? _bgVideoController;
+  Future<void>? _bgInitFuture;
+  String? _bgVideoId;
+  bool _bgVideoLoading = false;
 
   // Add this as a class variable
   int _analysisCount = 0;
@@ -318,6 +124,8 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   @override
   void initState() {
     super.initState();
+    print(
+        'NOW_PLAYING_INIT: initState called, playerStyle=${playerStyleSetting.value}');
 
     // Add lifecycle observer
     WidgetsBinding.instance.addObserver(this);
@@ -743,184 +551,221 @@ class _NowPlayingPageState extends State<NowPlayingPage>
     final size = MediaQuery.of(context).size;
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor:
-          theme.colorScheme.surfaceContainerHighest.withOpacity(0.98),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: BackButton(color: theme.colorScheme.onSurface),
-      ),
-      body: StreamBuilder<MediaItem?>(
-        stream: audioHandler.mediaItem,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Spinner());
-          }
-          final metadata = snapshot.data!;
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 18),
-                  Material(
-                    elevation: 10,
-                    borderRadius: BorderRadius.circular(24),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: GestureDetector(
-                        onDoubleTap: () async {
-                          final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Share this song?'),
-                                  content: const Text(
-                                      'Send this song to a nearby device using NFC or manual code.'),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        child: const Text('Cancel')),
-                                    ElevatedButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        child: const Text('Yes')),
-                                  ],
-                                ),
-                              ) ??
-                              false;
+    return ValueListenableBuilder<String>(
+      valueListenable: playerStyleSetting,
+      builder: (context, style, _) {
+        final isVideoStyle = style == 'video';
+        print(
+            'NOW_PLAYING_BUILD: playerStyle=$style, isVideoStyle=$isVideoStyle');
 
-                          if (confirmed && mounted) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      MusicSharePage(metadata: metadata)),
-                            );
-                          }
-                        },
-                        child: SongArtworkWidget(
-                          metadata: metadata,
-                          size: size.width * 0.7,
-                          errorWidgetIconSize: size.width / 8,
-                          borderRadius: 24,
-                          fit: BoxFit.cover,
+        return Scaffold(
+          backgroundColor:
+              theme.colorScheme.surfaceContainerHighest.withOpacity(0.98),
+          extendBodyBehindAppBar: isVideoStyle,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: BackButton(color: theme.colorScheme.onSurface),
+          ),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (isVideoStyle) _buildVideoBackground(theme),
+              StreamBuilder<MediaItem?>(
+                stream: audioHandler.mediaItem,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data == null) {
+                    return const Center(child: Spinner());
+                  }
+                  final metadata = snapshot.data!;
+                  _ensureBackgroundVideo(metadata, isVideoStyle);
+                  return SingleChildScrollView(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 18.0,
+                        vertical: isVideoStyle ? 12.0 : 0.0,
+                      ).add(
+                        EdgeInsets.only(
+                          top: isVideoStyle
+                              ? MediaQuery.of(context).padding.top +
+                                  kToolbarHeight
+                              : 0,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  MarqueeWidget(
-                    child: Text(
-                      metadata.title,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                        color: theme.colorScheme.onSurface,
-                        letterSpacing: -0.5,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (metadata.artist != null)
-                    Text(
-                      metadata.artist!,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 24),
-                  StreamBuilder<PositionData>(
-                    stream: audioHandler.positionDataStream,
-                    builder: (context, snapshot) {
-                      final positionData = snapshot.data ??
-                          PositionData(
-                              Duration.zero, Duration.zero, Duration.zero);
-                      return Column(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 5,
-                              thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 8),
-                              overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 16),
-                              activeTrackColor: theme.colorScheme.primary,
-                              inactiveTrackColor:
-                                  theme.colorScheme.onSurface.withOpacity(0.2),
-                              thumbColor: theme.colorScheme.primary,
-                            ),
-                            child: Slider(
-                              value: positionData.position.inSeconds
-                                  .toDouble()
-                                  .clamp(
-                                      0.0,
-                                      positionData.duration.inSeconds
-                                          .toDouble()),
-                              max: positionData.duration.inSeconds.toDouble() >
-                                      0
-                                  ? positionData.duration.inSeconds.toDouble()
-                                  : 1.0,
-                              onChanged: (value) {
-                                audioHandler
-                                    .seek(Duration(seconds: value.toInt()));
-                              },
+                          const SizedBox(height: 18),
+                          Material(
+                            elevation: 10,
+                            borderRadius: BorderRadius.circular(24),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: GestureDetector(
+                                onDoubleTap: () async {
+                                  final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: const Text('Share this song?'),
+                                          content: const Text(
+                                              'Send this song to a nearby device using NFC or manual code.'),
+                                          actions: [
+                                            TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, false),
+                                                child: const Text('Cancel')),
+                                            ElevatedButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, true),
+                                                child: const Text('Yes')),
+                                          ],
+                                        ),
+                                      ) ??
+                                      false;
+
+                                  if (confirmed && mounted) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => MusicSharePage(
+                                              metadata: metadata)),
+                                    );
+                                  }
+                                },
+                                child: SongArtworkWidget(
+                                  metadata: metadata,
+                                  size: size.width * 0.7,
+                                  errorWidgetIconSize: size.width / 8,
+                                  borderRadius: 24,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
                           ),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 6.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  formatDuration(
-                                      positionData.position.inSeconds),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  formatDuration(
-                                      positionData.duration.inSeconds),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(height: 28),
+                          MarqueeWidget(
+                            child: Text(
+                              metadata.title,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                                color: theme.colorScheme.onSurface,
+                                letterSpacing: -0.5,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          if (metadata.artist != null)
+                            Text(
+                              metadata.artist!,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          const SizedBox(height: 24),
+                          StreamBuilder<PositionData>(
+                            stream: audioHandler.positionDataStream,
+                            builder: (context, snapshot) {
+                              final positionData = snapshot.data ??
+                                  PositionData(Duration.zero, Duration.zero,
+                                      Duration.zero);
+                              return Column(
+                                children: [
+                                  SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 5,
+                                      thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 8),
+                                      overlayShape:
+                                          const RoundSliderOverlayShape(
+                                              overlayRadius: 16),
+                                      activeTrackColor:
+                                          theme.colorScheme.primary,
+                                      inactiveTrackColor: theme
+                                          .colorScheme.onSurface
+                                          .withOpacity(0.2),
+                                      thumbColor: theme.colorScheme.primary,
+                                    ),
+                                    child: Slider(
+                                      value: positionData.position.inSeconds
+                                          .toDouble()
+                                          .clamp(
+                                              0.0,
+                                              positionData.duration.inSeconds
+                                                  .toDouble()),
+                                      max: positionData.duration.inSeconds
+                                                  .toDouble() >
+                                              0
+                                          ? positionData.duration.inSeconds
+                                              .toDouble()
+                                          : 1.0,
+                                      onChanged: (value) {
+                                        audioHandler.seek(
+                                            Duration(seconds: value.toInt()));
+                                      },
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6.0),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          formatDuration(
+                                              positionData.position.inSeconds),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        Text(
+                                          formatDuration(
+                                              positionData.duration.inSeconds),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          _buildPlayerControls(context, metadata),
+                          const SizedBox(height: 18),
+                          _buildBottomActions(context, metadata),
+                          const SizedBox(height: 18),
+                          _buildSmartVolumeSection(theme),
+                          const SizedBox(height: 18),
+                          _buildLyricsSection(metadata, theme),
+                          const SizedBox(height: 50),
                         ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  _buildPlayerControls(context, metadata),
-                  const SizedBox(height: 18),
-                  _buildBottomActions(context, metadata),
-                  const SizedBox(height: 18),
-                  _buildSmartVolumeSection(theme),
-                  const SizedBox(height: 18),
-                  _buildLyricsSection(metadata, theme),
-                  const SizedBox(height: 50),
-                ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1045,6 +890,164 @@ class _NowPlayingPageState extends State<NowPlayingPage>
         ),
       ],
     );
+  }
+
+  Widget _buildVideoBackground(ThemeData theme) {
+    final controller = _bgVideoController;
+    final isInitialized = controller?.value.isInitialized ?? false;
+
+    print(
+        'VIDEO_BG_BUILD: isInitialized=$isInitialized, loading=$_bgVideoLoading');
+
+    return Positioned.fill(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (isInitialized)
+            FittedBox(
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: controller!.value.size.width,
+                height: controller.value.size.height,
+                child: VideoPlayer(controller),
+              ),
+            )
+          else if (_bgVideoLoading)
+            Container(
+              color: Colors.black,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.colorScheme.surfaceVariant.withOpacity(0.85),
+                    theme.colorScheme.surfaceContainerHighest.withOpacity(0.95),
+                  ],
+                ),
+              ),
+            ),
+          // Dark overlay for text readability
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.15),
+                  Colors.black.withOpacity(0.45),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _ensureBackgroundVideo(
+      MediaItem metadata, bool isVideoStyle) async {
+    final videoId = metadata.extras?['ytid']?.toString() ?? metadata.id;
+
+    print('ENSURE_VIDEO: videoId=$videoId, isVideoStyle=$isVideoStyle');
+
+    if (!isVideoStyle) {
+      if (_bgVideoController != null || _bgVideoId != null) {
+        print('ENSURE_VIDEO: Video style disabled, cleaning up');
+        _bgVideoId = null;
+        _bgInitFuture = null;
+        _bgVideoController?.dispose();
+        _bgVideoController = null;
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+
+    if (videoId.isEmpty) {
+      print('ENSURE_VIDEO: videoId is empty, skipping');
+      return;
+    }
+
+    final alreadyLoaded = _bgVideoId == videoId &&
+        (_bgVideoController?.value.isInitialized ?? false);
+    if (alreadyLoaded) {
+      print('ENSURE_VIDEO: Video already loaded for $videoId');
+      return;
+    }
+
+    if (_bgVideoLoading && _bgVideoId == videoId) {
+      print('ENSURE_VIDEO: Already loading video for $videoId');
+      return;
+    }
+
+    print('ENSURE_VIDEO: Starting video load for $videoId');
+    _bgVideoId = videoId;
+    _bgVideoController?.dispose();
+    _bgVideoController = null;
+    _bgVideoLoading = true;
+
+    _bgInitFuture = () async {
+      try {
+        print('ENSURE_VIDEO: Fetching video stream URL for $videoId');
+        final streamInfo =
+            await getVideoStreamUrl(videoId, targetQuality: 1080);
+        final url = streamInfo?['url'] as String?;
+        print(
+            'ENSURE_VIDEO: Got video URL: ${url?.substring(0, 80) ?? 'null'}...');
+
+        if (!mounted || _bgVideoId != videoId) {
+          print(
+              'ENSURE_VIDEO: Cancelled: mounted=$mounted, currentId=$_bgVideoId');
+          _bgVideoLoading = false;
+          return;
+        }
+
+        if (url == null) {
+          print('ENSURE_VIDEO: No video URL found, showing fallback');
+          _bgVideoLoading = false;
+          if (mounted) setState(() {});
+          return;
+        }
+
+        print('ENSURE_VIDEO: Creating VideoPlayerController');
+        final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+
+        await controller.setLooping(true);
+        await controller.setVolume(0);
+        print('ENSURE_VIDEO: Initializing controller...');
+        await controller.initialize();
+        print('ENSURE_VIDEO: Controller initialized: ${controller.value.size}');
+
+        if (!mounted || _bgVideoId != videoId) {
+          print('ENSURE_VIDEO: Cancelled after init');
+          controller.dispose();
+          _bgVideoLoading = false;
+          return;
+        }
+
+        _bgVideoLoading = false;
+        _bgVideoController = controller;
+        print('ENSURE_VIDEO: Video ready, calling setState');
+
+        if (mounted) {
+          setState(() {});
+        }
+
+        await controller.play();
+        print('ENSURE_VIDEO: Video playing');
+      } catch (e, st) {
+        print(
+            'ENSURE_VIDEO: Error initializing background video for $videoId: $e');
+        print('$st');
+        _bgVideoLoading = false;
+      }
+    }();
   }
 
   Widget _buildSmartVolumeSection(ThemeData theme) {
@@ -1449,7 +1452,6 @@ class _NowPlayingPageState extends State<NowPlayingPage>
 
       _micSubscription = _micStream?.listen(
         (audioData) {
-          print('Received audio chunk: ${audioData.length} bytes');
           _audioBuffer.add(audioData);
 
           // Keep more buffers to accumulate enough data
@@ -1459,7 +1461,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
           }
         },
         onError: (error) {
-          print('Microphone stream error: $error');
+          debugPrint('Microphone stream error: $error');
         },
         onDone: () {
           print('Microphone stream ended');
@@ -1494,22 +1496,10 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   }
 
   void _monitorAudioInput() {
-    Timer.periodic(Duration(seconds: 2), (timer) {
+    Timer.periodic(Duration(seconds: 10), (timer) {
       if (!_enableSmartVolume.value) {
         timer.cancel();
         return;
-      }
-
-      print('Audio monitoring: Buffer has ${_audioBuffer.length} chunks');
-      if (_audioBuffer.isNotEmpty) {
-        print('Latest buffer size: ${_audioBuffer.last.length} bytes');
-      }
-
-      // Check if microphone stream is active
-      if (_micStream == null) {
-        print('WARNING: Microphone stream is null!');
-      } else {
-        print('Microphone stream is active');
       }
     });
   }
@@ -1556,39 +1546,8 @@ class _NowPlayingPageState extends State<NowPlayingPage>
     }
   }
 
-  Future<LyricsReaderModel> _prepareLyricsModel(
-      String plainLyrics, Duration songDuration) async {
-    // Process lyrics using our smart sync algorithm
-    final processedLyrics = _createSmartLyricsSync(plainLyrics, songDuration);
-
-    // Convert to LyricsReaderModel format
-    final lrcLines = <String>[];
-
-    for (final lyric in processedLyrics) {
-      final minutes = lyric.startTime.inMinutes;
-      final seconds = lyric.startTime.inSeconds % 60;
-      final centiseconds = (lyric.startTime.inMilliseconds % 1000) ~/ 10;
-
-      final timeTag = '[${minutes.toString().padLeft(2, '0')}:'
-          '${seconds.toString().padLeft(2, '0')}.'
-          '${centiseconds.toString().padLeft(2, '0')}]';
-
-      lrcLines.add('$timeTag${lyric.text}');
-    }
-
-    final lrcContent = lrcLines.join('\n');
-
-    // Use the correct LyricsModelBuilder pattern from the example
-    final lyricsModel =
-        LyricsModelBuilder.create().bindLyricToMain(lrcContent).getModel();
-
-    return lyricsModel;
-  }
-
   Future<void> _analyzeEnvironmentAndAdjustVolume() async {
     if (_yamnetClassifier == null || _audioBuffer.isEmpty) {
-      print(
-          'Analysis skipped: classifier=${_yamnetClassifier != null}, buffer=${_audioBuffer.length}');
       return;
     }
 
@@ -1602,25 +1561,10 @@ class _NowPlayingPageState extends State<NowPlayingPage>
         combinedData.addAll(buffer);
       }
 
-      print(
-          'Combined audio data: ${combinedData.length} bytes from ${_audioBuffer.length} buffers');
-      print(
-          'Each chunk size: ${_audioBuffer.isNotEmpty ? _audioBuffer.first.length : 0} bytes');
-
       // Calculate how much data we actually need
       const requiredBytes = 31200; // 15600 samples * 2 bytes per sample
-      final chunksNeeded = (requiredBytes / 1280).ceil(); // ~25 chunks
-
-      print(
-          'Need $requiredBytes bytes (approx $chunksNeeded chunks of 1280 bytes each)');
 
       if (combinedData.length < requiredBytes) {
-        print(
-            'Insufficient audio data: ${combinedData.length} < $requiredBytes bytes');
-        print(
-            'Current buffer has ${_audioBuffer.length} chunks, need at least $chunksNeeded chunks');
-
-        // If we don't have enough data yet, skip this analysis
         _isAnalyzing.value = false;
         return;
       }
@@ -1629,10 +1573,6 @@ class _NowPlayingPageState extends State<NowPlayingPage>
       final audioBytes = Uint8List.fromList(combinedData.length > requiredBytes
           ? combinedData.sublist(combinedData.length - requiredBytes)
           : combinedData);
-
-      print('Processing ${audioBytes.length} bytes for YAMNet analysis');
-      print(
-          'This represents ${(audioBytes.length / 2 / 16000).toStringAsFixed(2)} seconds of audio');
 
       final result = await _yamnetClassifier!.classifyAudio(audioBytes);
 
@@ -1655,21 +1595,11 @@ class _NowPlayingPageState extends State<NowPlayingPage>
           isSpeechDetected = true;
           dominantCategory = 'Speech';
           dominantConfidence = speechEntry.value;
-
-          print(
-              '🗣️ SPEECH OVERRIDE: Speech detected with ${(speechEntry.value * 100).toStringAsFixed(1)}% confidence - overriding other detections');
-          print(
-              '📋 All results: ${result.entries.take(5).map((e) => "${e.key}: ${(e.value * 100).round()}%").join(", ")}');
         } else {
           // No speech detected or too low confidence, use normal logic
           final topEntry = result.entries.first;
           dominantCategory = topEntry.key;
           dominantConfidence = topEntry.value;
-
-          print(
-              'YAMNet Result: ${dominantCategory} with ${(dominantConfidence * 100).toStringAsFixed(1)}% confidence');
-          print(
-              '📋 All results: ${result.entries.take(5).map((e) => "${e.key}: ${(e.value * 100).round()}%").join(", ")}');
         }
 
         _currentEnvironment.value = dominantCategory;
@@ -1685,16 +1615,9 @@ class _NowPlayingPageState extends State<NowPlayingPage>
           await _adjustVolumeBasedOnEnvironment(
               dominantCategory, dominantConfidence);
         }
-
-        print('Environment: ${dominantCategory}, '
-            'Confidence: ${(dominantConfidence * 100).toStringAsFixed(1)}%, '
-            'Volume adjusted to: ${(_currentVolume.value * 100).round()}%');
-      } else {
-        print('No classification result from YAMNet');
       }
-    } catch (e, stackTrace) {
-      print('Error analyzing environment: $e');
-      print('Stack trace: $stackTrace');
+    } catch (e) {
+      // Silently fail to avoid terminal lag during background analysis
     } finally {
       _isAnalyzing.value = false;
     }
@@ -1705,8 +1628,6 @@ class _NowPlayingPageState extends State<NowPlayingPage>
       {bool forceSpeechWarning = false}) async {
     // For speech detection, always proceed regardless of confidence
     if (!forceSpeechWarning && confidence < 0.05) {
-      print(
-          'Confidence too low (${(confidence * 100).round()}%), skipping volume adjustment');
       return;
     }
 
@@ -1945,6 +1866,7 @@ class _NowPlayingPageState extends State<NowPlayingPage>
 
   void _showAddToPlaylistDialog(BuildContext context, MediaItem metadata) {
     final theme = Theme.of(context);
+    final playlists = userCustomPlaylists.value;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1952,38 +1874,41 @@ class _NowPlayingPageState extends State<NowPlayingPage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (userCustomPlaylists.isEmpty)
+            if (playlists.isEmpty)
               const Text('No playlists available. Create one first!')
             else
-              ...userCustomPlaylists.map((playlist) => ListTile(
-                    title: Text(playlist['title'] ?? 'Untitled Playlist'),
-                    subtitle: Text('${playlist['list']?.length ?? 0} songs'),
-                    onTap: () async {
-                      final audioId = metadata.extras?['ytid'] ?? metadata.id;
+              ...playlists.map((playlist) {
+                return ListTile(
+                  title: Text(playlist['title'] ?? 'Untitled Playlist'),
+                  subtitle: Text('${playlist['list']?.length ?? 0} songs'),
+                  onTap: () async {
+                    final audioId = metadata.extras?['ytid'] ?? metadata.id;
 
-                      // Create song object
-                      final songMap = {
-                        'ytid': audioId,
-                        'title': metadata.title,
-                        'artist': metadata.artist,
-                        'image': metadata.artUri?.toString(),
-                        'duration': metadata.duration?.inMilliseconds ?? 0,
-                      };
+                    // Create song object
+                    final songMap = {
+                      'ytid': audioId,
+                      'title': metadata.title,
+                      'artist': metadata.artist,
+                      'image': metadata.artUri?.toString(),
+                      'duration': metadata.duration?.inMilliseconds ?? 0,
+                    };
 
-                      final result = addSongInCustomPlaylist(
-                        playlist['title'],
-                        songMap,
-                      );
+                    final result = addSongInCustomPlaylist(
+                      playlist['title'],
+                      audioId,
+                      songMap,
+                    );
 
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(result),
-                          backgroundColor: theme.colorScheme.primary,
-                        ),
-                      );
-                    },
-                  )),
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result),
+                        backgroundColor: theme.colorScheme.primary,
+                      ),
+                    );
+                  },
+                );
+              }).toList(),
           ],
         ),
         actions: [
@@ -1997,118 +1922,9 @@ class _NowPlayingPageState extends State<NowPlayingPage>
   }
 
   Widget _buildLyricsSection(MediaItem meta, ThemeData theme) {
-    final isVideo = meta.extras?['isVideo'] ?? false;
-    if (isVideo) return const SizedBox.shrink();
-
-    return FutureBuilder<String?>(
-      future: getSongLyrics(meta.artist ?? '', meta.title),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Spinner();
-        }
-        final plainLyrics = snapshot.data;
-
-        if (plainLyrics == null ||
-            plainLyrics.trim().isEmpty ||
-            plainLyrics.toLowerCase().contains('not found') ||
-            plainLyrics.toLowerCase().contains('error') ||
-            plainLyrics.toLowerCase().contains('no lyrics') ||
-            plainLyrics.length < 10) {
-          return _buildLyricSuggestions(meta, theme);
-        }
-
-        return FutureBuilder<LyricsReaderModel>(
-          future:
-              _prepareLyricsModel(plainLyrics, meta.duration ?? Duration.zero),
-          builder: (context, lyricsSnapshot) {
-            if (lyricsSnapshot.connectionState != ConnectionState.done) {
-              return const Spinner();
-            }
-            final lyricsModel = lyricsSnapshot.data!;
-
-            return Container(
-              margin: const EdgeInsets.only(top: 16),
-              padding: const EdgeInsets.all(16),
-              height: 300,
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.1), blurRadius: 8),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Smart Sync Lyrics',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      ValueListenableBuilder<bool>(
-                        valueListenable: _highlightLyrics,
-                        builder: (context, isHighlighted, _) {
-                          return Row(
-                            children: [
-                              Text('Highlight',
-                                  style: theme.textTheme.bodySmall),
-                              const SizedBox(width: 8),
-                              Switch(
-                                value: isHighlighted,
-                                onChanged: (newVal) {
-                                  _highlightLyrics.value = newVal;
-                                },
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: StreamBuilder<PositionData>(
-                      stream: audioHandler.positionDataStream,
-                      builder: (context, positionSnapshot) {
-                        final posMs =
-                            positionSnapshot.data?.position.inMilliseconds ?? 0;
-                        final playing =
-                            audioHandler.playbackState.value.playing;
-
-                        return LyricsReader(
-                          model: lyricsModel,
-                          lyricUi: UINetease()
-                            ..highlight = _highlightLyrics.value
-                            ..defaultSize = 16
-                            ..otherMainSize = 14
-                            ..bias = 0.3, // Show more upcoming lyrics
-                          position: posMs,
-                          playing: playing,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          size: Size(MediaQuery.of(context).size.width, 300),
-                          emptyBuilder: () => Center(
-                            child: Text(
-                              'Analyzing song structure...',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+    return SpotifyLyricsView(
+      metadata: meta,
+      isFullscreen: false,
     );
   }
 
@@ -2253,20 +2069,6 @@ class _NowPlayingPageState extends State<NowPlayingPage>
 
     _stopSmartVolumeAnalysis();
     _stopStateBackup();
-    _lyricsTimer?.cancel();
-    _volumeAnimationController.dispose();
-
-    // Dispose all ValueNotifiers
-    _enableSmartVolume.dispose();
-    _currentEnvironment.dispose();
-    _currentVolume.dispose();
-    _confidenceLevel.dispose();
-    _isAnalyzing.dispose();
-    _highlightLyrics.dispose();
-    _currentLyricIndex.dispose();
-    _showResumeDialog.dispose();
-    _hasHeadphones.dispose();
-    _isCheckingHeadphones.dispose();
   }
 
   @override

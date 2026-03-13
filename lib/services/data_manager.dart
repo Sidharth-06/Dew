@@ -26,7 +26,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:dew/extensions/l10n.dart';
 
-void addOrUpdateData(String category, String key, dynamic value) async {
+Future<void> addOrUpdateData(String category, String key, dynamic value) async {
   final _box = await _openBox(category);
   await _box.put(key, value);
   if (category == 'cache') {
@@ -52,12 +52,12 @@ Future getData(
   return await _box.get(key, defaultValue: defaultValue);
 }
 
-void deleteData(String category, String key) async {
+Future<void> deleteData(String category, String key) async {
   final _box = await _openBox(category);
   await _box.delete(key);
 }
 
-void clearCache() async {
+Future<void> clearCache() async {
   final _cacheBox = await _openBox('cache');
   await _cacheBox.clear();
 }

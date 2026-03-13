@@ -54,6 +54,7 @@ class PlaylistPage extends StatefulWidget {
 class _PlaylistPageState extends State<PlaylistPage> {
   final List<dynamic> _songsList = [];
   dynamic _playlist;
+  dynamic activePlaylist;
 
   bool _isLoading = true;
   bool _hasMore = true;
@@ -269,7 +270,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 onPressed: () {
                   setState(() {
                     final index =
-                        userCustomPlaylists.indexOf(widget.playlistData);
+                        userCustomPlaylists.value.indexOf(widget.playlistData);
 
                     if (index != -1) {
                       final newPlaylist = {
@@ -278,11 +279,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
                         if (imageUrl != null) 'image': imageUrl,
                         'list': widget.playlistData['list'],
                       };
-                      userCustomPlaylists[index] = newPlaylist;
+                      userCustomPlaylists.value[index] = newPlaylist;
                       addOrUpdateData(
                         'user',
                         'customPlaylists',
-                        userCustomPlaylists,
+                        userCustomPlaylists.value,
                       );
                       _playlist = newPlaylist;
                       showToast(context, context.l10n!.playlistUpdated);
@@ -320,9 +321,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
       context.l10n!.undo.toUpperCase(),
       () {
         addSongInCustomPlaylist(
-          _playlist['title'],
+          _playlist,
           songToRemove,
-          indexToInsert: indexOfRemovedSong,
+          indexOfRemovedSong as Map<dynamic, dynamic>,
         );
         _songsList.insert(indexOfRemovedSong, songToRemove);
         setState(() {});
@@ -343,11 +344,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
       iconSize: 25,
       onPressed: () {
         final _newList = List.of(_playlist['list'])..shuffle();
-        setActivePlaylist({
+        activePlaylist = {
           'title': _playlist['title'],
           'image': _playlist['image'],
           'list': _newList,
-        });
+        };
       },
     );
   }
@@ -420,7 +421,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     return SongBar(
       _songsList[index],
       true,
-      borderRadius: BorderRadius.circular(8.0),
+      borderRadius: BorderRadius.circular(8),
       onRemove: _playlist['isCustom'] == true
           ? () => {
                 removeSongFromPlaylist(

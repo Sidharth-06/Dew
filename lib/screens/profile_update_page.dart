@@ -1,8 +1,10 @@
-
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:appwrite/appwrite.dart';
+import 'package:dew/config/appwrite_config.dart';
+import 'package:dew/services/appwrite_service.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -15,13 +17,9 @@ class ProfileUpdatePage extends StatefulWidget {
 
 class _ProfileUpdatePageState extends State<ProfileUpdatePage> {
   final TextEditingController _nameController = TextEditingController();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
   String? _profilePictureUrl;
   File? _profilePictureFile;
   bool _isLoading = false;
-
   @override
   void initState() {
     super.initState();
@@ -31,20 +29,20 @@ class _ProfileUpdatePageState extends State<ProfileUpdatePage> {
   Future<void> _loadUserData() async {
     setState(() => _isLoading = true);
     try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        final userDoc = await _firestore.collection('users').doc(user.uid).get();
-        if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>;
-          _nameController.text = userData['username'] ?? '';
-          _profilePictureUrl = userData['profilePictureUrl'];
-        }
-      }
+      final user = await AppwriteService().account.get();
+      final userDoc = await AppwriteService().databases.getDocument(
+            databaseId: AppwriteConfig.databaseId,
+            collectionId: 'users',
+            documentId: user.$id,
+          );
+
+      final userData = userDoc.data;
+      _nameController.text = userData['username'] ?? '';
+      _profilePictureUrl = userData['profilePictureUrl'];
     } catch (e) {
       print('Error loading user data: $e');
-      // Handle error (e.g., show a snackbar)
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -62,39 +60,45 @@ class _ProfileUpdatePageState extends State<ProfileUpdatePage> {
   Future<void> _updateProfile() async {
     setState(() => _isLoading = true);
     try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        String? newProfilePictureUrl = _profilePictureUrl;
+      final user = await AppwriteService().account.get();
+      String? newProfilePictureUrl = _profilePictureUrl;
 
-        // Upload new profile picture if selected
-        if (_profilePictureFile != null) {
-          final ref = _storage.ref().child('profile_pictures/${user.uid}.jpg');
-          await ref.putFile(_profilePictureFile!);
-          newProfilePictureUrl = await ref.getDownloadURL();
-        }
+      // Upload new profile picture if selected
+      if (_profilePictureFile != null) {
+        final file = await AppwriteService().storage.createFile(
+              bucketId: AppwriteConfig.bucketId,
+              fileId: ID.unique(),
+              file: InputFile.fromPath(path: _profilePictureFile!.path),
+            );
+        newProfilePictureUrl =
+            '${AppwriteConfig.endpoint}/storage/buckets/${AppwriteConfig.bucketId}/files/${file.$id}/view?project=${AppwriteConfig.projectId}';
+      }
 
-        // Update user data in Firestore
-        await _firestore.collection('users').doc(user.uid).update({
+      // Update user data in Database
+      await AppwriteService().databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'users',
+        documentId: user.$id,
+        data: {
           'username': _nameController.text,
           'profilePictureUrl': newProfilePictureUrl,
-        });
+        },
+      );
 
-        // Update display name in Firebase Auth
-        await user.updateDisplayName(_nameController.text);
+      // Update name in Account
+      await AppwriteService().account.updateName(name: _nameController.text);
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
-        );
-      }
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully!')),
+      );
     } catch (e) {
       print('Error updating profile: $e');
-      // Handle error (e.g., show a snackbar)
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to update profile: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -118,10 +122,13 @@ class _ProfileUpdatePageState extends State<ProfileUpdatePage> {
                           ? FileImage(_profilePictureFile!) as ImageProvider
                           : _profilePictureUrl != null
                               ? NetworkImage(_profilePictureUrl!)
-                              : const AssetImage('assets/default_profile.png') // Replace with your default asset
+                              : const AssetImage(
+                                      'assets/default_profile.png') // Replace with your default asset
                                   as ImageProvider,
-                      child: _profilePictureUrl == null && _profilePictureFile == null
-                          ? const Icon(Icons.camera_alt, size: 40, color: Colors.white)
+                      child: _profilePictureUrl == null &&
+                              _profilePictureFile == null
+                          ? const Icon(Icons.camera_alt,
+                              size: 40, color: Colors.white)
                           : null,
                     ),
                   ),

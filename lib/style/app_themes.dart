@@ -137,22 +137,49 @@ ThemeData getAppTheme(ColorScheme colorScheme) {
 }
 
 class AppThemes {
-  static ThemeData lightTheme(Color primaryColor) {
+  static const _defaultSeedColor = Color(0xFF6750A4); // M3 Purple
+
+  static ThemeData lightTheme(Color? primaryColor) {
+    final seed = primaryColor ?? _defaultSeedColor;
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
-        brightness: Brightness.light,
+        seedColor: seed,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(32),
+        ),
+        clipBehavior: Clip.antiAlias,
+      ),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
       ),
     );
   }
 
-  static ThemeData darkTheme(Color primaryColor) {
+  static ThemeData darkTheme(Color? primaryColor) {
+    final seed = primaryColor ?? _defaultSeedColor;
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
+        seedColor: seed,
         brightness: Brightness.dark,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(32),
+        ),
+        clipBehavior: Clip.antiAlias,
+      ),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
       ),
     );
   }

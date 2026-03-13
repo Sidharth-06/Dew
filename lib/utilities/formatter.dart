@@ -52,7 +52,9 @@ String formatSongTitle(String title) {
   return finalTitle;
 }
 
-Map<String, dynamic> returnSongLayout(int index, Video song, {String? playlistImage}) => {
+Map<String, dynamic> returnSongLayout(int index, Video song,
+        {String? playlistImage}) =>
+    {
       'id': index,
       'ytid': song.id.toString(),
       'title': formatSongTitle(
@@ -83,4 +85,14 @@ String formatDuration(int audioDurationInSeconds) {
   formattedDuration += seconds.toString().padLeft(2, '0');
 
   return formattedDuration;
+}
+
+String? extractYoutubePlaylistId(String url) {
+  try {
+    final uri = Uri.parse(url);
+    if (uri.queryParameters.containsKey('list')) {
+      return uri.queryParameters['list'];
+    }
+  } catch (_) {}
+  return null;
 }

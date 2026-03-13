@@ -19,8 +19,9 @@
  *     please visit: https://github.com/gokadzev/Musify
  */
 
-import 'package:dew/generated/app_localizations.dart';
+import 'package:dew/generated/app_localizations.dart' show AppLocalizations;
 import 'package:flutter/widgets.dart';
+
 
 extension LocalizationsExtension on BuildContext {
   AppLocalizations? get l10n => AppLocalizations.of(this);

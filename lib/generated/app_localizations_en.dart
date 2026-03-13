@@ -1,3 +1,5 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -115,7 +117,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dynamicColor => 'Dynamic accent color (Android 12+)';
 
   @override
-  String get enablePredictiveBack => 'Enable predictive back animations (Android 14+)';
+  String get enablePredictiveBack =>
+      'Enable predictive back animations (Android 14+)';
 
   @override
   String get error => 'Something went wrong';
@@ -139,7 +142,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featuredPlaylists => 'Featured Playlists';
 
   @override
-  String get folderRestrictions => 'Due to new restrictions on Android, it is essential to select specific and appropriate folders for different file types. Please ensure that you choose either the \'Documents\' or \'Downloads\' folder for the app backup.';
+  String get folderRestrictions =>
+      'Due to new restrictions on Android, it is essential to select specific and appropriate folders for different file types. Please ensure that you choose either the \'Documents\' or \'Downloads\' folder for the app backup.';
 
   @override
   String get hideTheaterElements => 'Hide Theater Elements';
@@ -196,7 +200,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get name => 'Name';
 
   @override
-  String get noCustomPlaylists => 'You haven\'t created any custom playlists yet';
+  String get noCustomPlaylists =>
+      'You haven\'t created any custom playlists yet';
 
   @override
   String get noLikedPlaylists => 'You haven\'t liked any playlists yet';
@@ -217,7 +222,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get offlineSongs => 'Offline songs';
 
   @override
-  String get originalRecommendations => 'Original algorithm for recommendations';
+  String get originalRecommendations =>
+      'Original algorithm for recommendations';
 
   @override
   String get others => 'Others';
@@ -238,7 +244,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get preferences => 'Preferences';
 
   @override
-  String get provideIdOrNameError => 'Please provide a YouTube ID or custom playlist name';
+  String get provideIdOrNameError =>
+      'Please provide a YouTube ID or custom playlist name';
 
   @override
   String get readyToSing => 'Ready to Sing Along!';
@@ -404,4 +411,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get play => 'Play';
+
+  @override
+  String get playlistAlreadyExists => 'Playlist already exists';
+
+  @override
+  String get invalidYouTubePlaylist => 'Invalid YouTube playlist';
+
+  @override
+  String get songAlreadyInPlaylist => 'Song already in playlist';
+
+  @override
+  String get folderAlreadyExists => 'Folder already exists';
+
+  @override
+  String get enterFolderName => 'Enter folder name';
+
+  @override
+  String get folderDeleted => 'Folder deleted successfully';
 }

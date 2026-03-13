@@ -1,8 +1,6 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
-import 'package:flutter/material.dart';
 import 'package:dew/API/musify.dart';
 import 'package:dew/extensions/l10n.dart';
 import 'package:dew/main.dart';
@@ -11,6 +9,8 @@ import 'package:dew/utilities/common_variable.dart';
 import 'package:dew/utilities/flutter_toast.dart';
 import 'package:dew/utilities/formatter.dart';
 import 'package:dew/widgets/no_artwork_cube.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/material.dart';
 
 class SongBar extends StatelessWidget {
   SongBar(
@@ -21,7 +21,7 @@ class SongBar extends StatelessWidget {
     this.onPlay,
     this.onRemove,
     super.key,
-    required BorderRadius borderRadius,
+    required this.borderRadius,
   });
 
   final dynamic song;
@@ -30,6 +30,7 @@ class SongBar extends StatelessWidget {
   final VoidCallback? onRemove;
   final VoidCallback? onPlay;
   final bool showMusicDuration;
+  final BorderRadius borderRadius;
 
   static const likeStatusToIconMapper = {
     true: FluentIcons.heart_24_filled,
@@ -45,19 +46,11 @@ class SongBar extends StatelessWidget {
         onTap: onPlay ??
             () {
               audioHandler.playSong(song);
-              if (activePlaylist.isNotEmpty && clearPlaylist) {
-                activePlaylist = {
-                  'ytid': '',
-                  'title': 'No Playlist',
-                  'image': '',
-                  'list': [],
-                };
-                activeSongId = 0;
-              }
             },
         child: Card(
           elevation: 1.5,
           color: backgroundColor,
+          shape: RoundedRectangleBorder(borderRadius: borderRadius),
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: Row(
@@ -203,19 +196,23 @@ void showAddToPlaylistDialog(BuildContext context, dynamic song) {
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.6,
           ),
-          child: userCustomPlaylists.isNotEmpty
+          child: userCustomPlaylists.value.isNotEmpty
               ? ListView.builder(
                   shrinkWrap: true,
-                  itemCount: userCustomPlaylists.length,
+                  itemCount: userCustomPlaylists.value.length,
                   itemBuilder: (context, index) {
-                    final playlist = userCustomPlaylists[index];
+                    final playlist = userCustomPlaylists.value[index];
                     return Card(
                       color: Theme.of(context).colorScheme.secondaryContainer,
                       elevation: 0,
                       child: ListTile(
                         title: Text(playlist['title']),
                         onTap: () {
-                          addSongInCustomPlaylist(playlist['title'], song);
+                          addSongInCustomPlaylist(
+                            playlist['title'],
+                            song,
+                            context as Map<dynamic, dynamic>,
+                          );
                           showToast(context, context.l10n!.songAdded);
                           Navigator.pop(context);
                         },

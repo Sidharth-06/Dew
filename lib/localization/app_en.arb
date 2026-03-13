@@ -133,7 +133,13 @@
   "enter": "Enter",
   "exitTheatreMode": "Exit Theatre Mode",
   "pause": "Pause",
-  "play": "Play"
+  "play": "Play",
+  "playlistAlreadyExists": "Playlist already exists",
+  "invalidYouTubePlaylist": "Invalid YouTube playlist",
+  "songAlreadyInPlaylist": "Song already in playlist",
+  "folderAlreadyExists": "Folder already exists",
+  "enterFolderName": "Enter folder name",
+  "folderDeleted": "Folder deleted successfully"
 }
 
 

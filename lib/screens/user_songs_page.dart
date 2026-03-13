@@ -176,7 +176,7 @@ class _UserSongsPageState extends State<UserSongsPage> {
                   true,
                   onPlay: () => {
                     audioHandler.playPlaylistSong(
-                      playlist: activePlaylist != _playlist ? _playlist : null,
+                      playlist: _playlist,
                       songIndex: index,
                     ),
                   },
@@ -204,7 +204,7 @@ class _UserSongsPageState extends State<UserSongsPage> {
                   true,
                   onPlay: () => {
                     audioHandler.playPlaylistSong(
-                      playlist: activePlaylist != _playlist ? _playlist : null,
+                      playlist: _playlist,
                       songIndex: index,
                     ),
                   },

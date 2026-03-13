@@ -128,7 +128,7 @@ class PlaylistCube extends StatelessWidget {
                   onPressed: () {
                     final newValue = !playlistLikeStatus.value;
                     playlistLikeStatus.value = newValue;
-                    updatePlaylistLikeStatus(playlistYtid! as Map, newValue);
+                    updatePlaylistLikeStatus(playlistYtid! as String, newValue);
                     // currentLikedPlaylistsLength is updated within updatePlaylistLikeStatus
                   },
                 );

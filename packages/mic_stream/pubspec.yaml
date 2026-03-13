@@ -1,0 +1,19 @@
+name: mic_stream
+version: 0.7.3
+publish_to: 'none'
+description: Patched mic_stream for Flutter v2 embedding.
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.code.aaron.micstream
+        pluginClass: MicStreamPlugin

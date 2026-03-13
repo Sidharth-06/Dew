@@ -30,7 +30,7 @@ set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Use Unicode for all projects.
-add_definitions(-DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)
+add_definitions(-DUNICODE -D_UNICODE)
 
 # Compilation settings that should be applied to most targets.
 #
@@ -39,10 +39,11 @@ add_definitions(-DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)
 # of modifying this function.
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_17)
-  target_compile_options(${TARGET} PRIVATE /W4 /WX /wd"4100")
+  target_compile_options(${TARGET} PRIVATE /W4 /wd"4100")
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
+  target_compile_definitions(${TARGET} PRIVATE "_CRT_SECURE_NO_WARNINGS")
 endfunction()
 
 # Flutter library and tool build rules.
@@ -106,67 +107,3 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
-
-# This file controls Flutter-level build steps. It should not be edited.
-cmake_minimum_required(VERSION 3.14)
-
-set(EPHEMERAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ephemeral")
-
-# Configuration provided via flutter tool.
-if(EXISTS "${EPHEMERAL_DIR}/generated_config.cmake")
-  include(${EPHEMERAL_DIR}/generated_config.cmake)
-else()
-  message(FATAL_ERROR "Missing generated_config.cmake. Run 'flutter build windows' to generate it.")
-endif()
-
-# TODO: Move the rest of this into files in ephemeral. See
-# https://github.com/flutter/flutter/issues/57146.
-set(WRAPPER_ROOT "${EPHEMERAL_DIR}/cpp_client_wrapper")
-
-# Set fallback configurations for older versions of the flutter tool.
-if (NOT DEFINED FLUTTER_TARGET_PLATFORM)
-  set(FLUTTER_TARGET_PLATFORM "windows-x64")
-endif()
-
-# === Flutter Library ===
-set(FLUTTER_LIBRARY "${EPHEMERAL_DIR}/flutter_windows.dll")
-
-# Published to parent scope for install step.
-set(FLUTTER_LIBRARY ${FLUTTER_LIBRARY} PARENT_SCOPE)
-set(FLUTTER_ICU_DATA_FILE "${EPHEMERAL_DIR}/icudtl.dat" PARENT_SCOPE)
-set(PROJECT_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}" PARENT_SCOPE)
-set(AOT_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/app.so" PARENT_SCOPE)
-
-list(APPEND FLUTTER_LIBRARY_HEADERS
-  "${WRAPPER_ROOT}/include/internal"
-  "${WRAPPER_ROOT}/include"
-  "${WRAPPER_ROOT}/include/windows"
-)
-
-# Use Unicode for all projects.
-add_definitions(-DUNICODE -D_UNICODE -D_CRT_SECURE_NO_WARNINGS)
-
-# Compilation settings that should be applied to most targets.
-#
-# Be cautious about adding new options here, as plugins use this function by
-# default. In most cases, you should add new options to specific targets instead
-# of modifying this function.
-function(APPLY_STANDARD_SETTINGS TARGET)
-  target_compile_features(${TARGET} PUBLIC cxx_std_17)
-  target_compile_options(${TARGET} PRIVATE /W4 /WX /wd"4100")
-  target_include_directories(${TARGET} PRIVATE "${FLUTTER_LIBRARY_HEADERS}")
-  target_link_libraries(${TARGET} PRIVATE ${CMAKE_DL_LIBS} stdc++fs)
-endfunction()
-
-# === Flutter Plugins ===
-if(EXISTS "${EPHEMERAL_DIR}/plugins")
-  add_subdirectory("${EPHEMERAL_DIR}/plugins" plugins)
-else()
-  message(WARNING "Missing plugins directory. Run 'flutter build windows' to generate it.")
-endif()
-
-# === Application ===
-if(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/runner")
-  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/runner")
-endif()
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/runner" "${CMAKE_CURRENT_BINARY_DIR}/runner")

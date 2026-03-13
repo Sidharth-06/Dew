@@ -22,6 +22,12 @@
 import 'package:flutter/material.dart';
 
 const availableColors = <Color>[
+  Color(0xFFD0BCFF), // Material 3 Purple (Primary)
+  Color(0xFFCCC2DC), // Material 3 Purple (Secondary)
+  Color(0xFFEFB8C8), // Material 3 Pink (Tertiary)
+  Color(0xFF6650a4), // Material 3 Purple Dark
+  Color(0xFF625b71), // Material 3 Purple Secondary Dark
+  Color(0xFF7D5260), // Material 3 Pink Dark
   Color(0xFF009688), // Material Teal
   Color(0xFF00BCD4), // Material Cyan
   Color(0xFF00FA9A), // Medium Spring Green
