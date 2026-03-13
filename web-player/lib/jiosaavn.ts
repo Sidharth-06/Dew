@@ -64,9 +64,9 @@ function getImageUrl(url: string, quality: "low" | "medium" | "high" = "high"): 
     return url.replace(/150x150|50x50/, sizes[quality]);
 }
 
-// ─── JioSaavn API ────────────────────────────────────────────────────────────
+// ─── JioSaavn API (via Cloudflare Worker proxy) ─────────────────────────────
 
-const BASE_URL = "https://www.jiosaavn.com";
+const PROXY_URL = "https://jiosaavn-proxy.sidharthkrishna441.workers.dev";
 const API_PATH = "/api.php?_format=json&_marker=0&api_version=4&ctx=web6dot0";
 
 const ENDPOINTS: Record<string, string> = {
@@ -80,39 +80,22 @@ const ENDPOINTS: Record<string, string> = {
     autocomplete: "__call=autocomplete.get",
 };
 
-const HEADERS: Record<string, string> = {
-    "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    Accept: "application/json, text/javascript, */*; q=0.01",
-    "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
-    Referer: "https://www.jiosaavn.com/",
-    Origin: "https://www.jiosaavn.com",
-    Cookie: "L=english; DL=english; gdpr_acceptance=true",
-    "X-Requested-With": "XMLHttpRequest",
-};
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function apiRequest(params: string, usev4 = true): Promise<any> {
     const path = usev4 ? `${API_PATH}&${params}` : `${API_PATH}&${params}`.replace("&api_version=4", "");
-    const url = `${BASE_URL}${path}`;
+    const url = `${PROXY_URL}${path}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
         const res = await fetch(url, {
-            headers: HEADERS,
             signal: controller.signal,
             cache: "no-store",
         });
 
         if (!res.ok) {
             throw new Error(`JioSaavn API ${res.status}`);
-        }
-
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("json") && !contentType.includes("javascript")) {
-            throw new Error("JioSaavn returned non-JSON (likely blocked)");
         }
 
         return await res.json();
@@ -231,11 +214,6 @@ interface HomeSection {
 export async function fetchHomePageData(): Promise<HomeSection[]> {
     const data = await apiRequest(ENDPOINTS.homeData);
     const sections: HomeSection[] = [];
-
-    // Debug: log top-level keys from JioSaavn response
-    console.log("[Home] JioSaavn response keys:", Object.keys(data));
-    console.log("[Home] new_trending type:", typeof data.new_trending, Array.isArray(data.new_trending) ? `(${(data.new_trending as unknown[]).length} items)` : "");
-    console.log("[Home] charts type:", typeof data.charts, Array.isArray(data.charts) ? `(${(data.charts as unknown[]).length} items)` : "");
 
     // Trending songs
     if (Array.isArray(data.new_trending)) {
