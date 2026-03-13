@@ -5,29 +5,45 @@ export const preferredRegion = "bom1";
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const title = searchParams.get("title") || "";
+    const artist = searchParams.get("artist") || "";
 
     if (!id) {
         return NextResponse.json({ error: "Missing song ID" }, { status: 400 });
     }
 
+    // 1. Try JioSaavn lyrics (works for older songs)
     try {
         const url = `https://jiosaavn-proxy.sidharthkrishna441.workers.dev/api.php?__call=lyrics.getLyrics&lyrics_id=${id}&ctx=web6dot0&api_version=4&_format=json`;
-
-        const response = await fetch(url, {
-            cache: "no-store",
-        });
-
-        if (!response.ok) {
-            throw new Error(`JioSaavn API ${response.status}`);
+        const response = await fetch(url, { cache: "no-store" });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.lyrics) {
+                return NextResponse.json({ lyrics: data.lyrics });
+            }
         }
-
-        const data = await response.json();
-        if (data.lyrics) {
-            return NextResponse.json({ lyrics: data.lyrics });
-        }
-        return NextResponse.json({ error: "No lyrics found" }, { status: 404 });
-    } catch (error) {
-        console.error("Lyrics API error:", error);
-        return NextResponse.json({ error: "Lyrics unavailable" }, { status: 404 });
+    } catch {
+        // fall through to lrclib
     }
+
+    // 2. Fallback to lrclib.net (covers newer songs, free, no key)
+    if (title) {
+        try {
+            const q = encodeURIComponent(`${title} ${artist}`.trim());
+            const lrcRes = await fetch(`https://lrclib.net/api/search?q=${q}`, { cache: "no-store" });
+            if (lrcRes.ok) {
+                const results = await lrcRes.json();
+                const match = Array.isArray(results) && results.find((r: { plainLyrics?: string }) => r.plainLyrics);
+                if (match?.plainLyrics) {
+                    // Convert plain text to <br> format to match existing rendering
+                    const lyrics = match.plainLyrics.replace(/\n/g, "<br>");
+                    return NextResponse.json({ lyrics });
+                }
+            }
+        } catch {
+            // fall through
+        }
+    }
+
+    return NextResponse.json({ error: "No lyrics found" }, { status: 404 });
 }

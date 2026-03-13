@@ -79,12 +79,17 @@ export default function NowPlaying({
     const [loadingLyrics, setLoadingLyrics] = useState(false);
 
     useEffect(() => {
-        if (currentSong && currentSong.hasLyrics) {
+        if (currentSong) {
             const fetchLyrics = async () => {
                 setLoadingLyrics(true);
                 setLyrics("");
                 try {
-                    const res = await fetch(`/api/lyrics?id=${currentSong.id}`);
+                    const params = new URLSearchParams({
+                        id: currentSong.id,
+                        title: currentSong.title,
+                        artist: currentSong.artist,
+                    });
+                    const res = await fetch(`/api/lyrics?${params}`);
                     const data = await res.json();
                     if (data.lyrics) {
                         setLyrics(data.lyrics.replace(/<br\s*\/?>/gi, '\n'));
@@ -227,7 +232,7 @@ export default function NowPlaying({
                             <div className="h-[350px] overflow-y-auto custom-scrollbar pr-4 text-2xl leading-[32px] text-gray-700 space-y-4">
                                 {loadingLyrics ? (
                                      <div className="flex items-center gap-2 text-gray-500"><div className="w-4 h-4 rounded-full border-2 border-gray-300 border-t-gray-600 animate-spin" /> Fetching lyrics...</div>
-                                ) : currentSong.hasLyrics && lyrics ? (
+                                ) : lyrics ? (
                                     lyrics.split('\n').map((line, i) => (
                                         <p key={i} className={i % 2 === 0 ? "text-gray-900" : "text-orange-600"}>{line || '\u00A0'}</p>
                                     ))
