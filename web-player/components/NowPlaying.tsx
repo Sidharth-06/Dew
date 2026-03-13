@@ -75,25 +75,24 @@ export default function NowPlaying({
     const [scrubValue, setScrubValue] = useState(0);
     const progressBarRef = useRef<HTMLDivElement>(null);
 
-    const [showLyrics, setShowLyrics] = useState(false);
     const [lyrics, setLyrics] = useState<string>("");
     const [loadingLyrics, setLoadingLyrics] = useState(false);
 
     useEffect(() => {
-        if (showLyrics && currentSong && currentSong.hasLyrics) {
+        if (currentSong && currentSong.hasLyrics) {
             const fetchLyrics = async () => {
                 setLoadingLyrics(true);
+                setLyrics("");
                 try {
                     const res = await fetch(`/api/lyrics?id=${currentSong.id}`);
                     const data = await res.json();
                     if (data.lyrics) {
-                        // Unescape HTML <br> tags
                         setLyrics(data.lyrics.replace(/<br\s*\/?>/gi, '\n'));
                     } else {
-                        setLyrics("Lyrics not available.");
+                        setLyrics("");
                     }
                 } catch {
-                    setLyrics("Error loading lyrics.");
+                    setLyrics("");
                 } finally {
                     setLoadingLyrics(false);
                 }
@@ -102,7 +101,7 @@ export default function NowPlaying({
         } else {
             setLyrics("");
         }
-    }, [showLyrics, currentSong]);
+    }, [currentSong]);
 
     if (!currentSong) return null;
 
