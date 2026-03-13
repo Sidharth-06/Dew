@@ -120,7 +120,7 @@ export default function HomePage() {
                                     style={{ transform: getRandomRotation(i + 13), zIndex: getZIndex(i) }}
                                     className="hover:z-50 hover:scale-105 transition-transform"
                                 >
-                                    <div className="polaroid max-w-[200px] cursor-pointer" onClick={() => {}}>
+                                    <div className="polaroid max-w-[200px] cursor-pointer" onClick={() => playQueue(searchResults, i)}>
                                          <div className="tape-strip top-[-10px]"></div>
                                          <img src={song.image} alt={song.title} className="w-full aspect-square object-cover mb-3 bg-gray-200" />
                                          <p className="font-caveat font-bold text-lg leading-tight truncate">{song.title}</p>
@@ -168,6 +168,7 @@ export default function HomePage() {
                                                 transition={{ delay: j * 0.1 }}
                                                 style={{ transform: getRandomRotation(j), zIndex: getZIndex(j) }}
                                                 className="hover:z-50 hover:scale-105 transition-all w-[200px]"
+                                onClick={() => playQueue(recentlyPlayed, j)}
                                             >
                                                 <div className="polaroid max-w-full cursor-pointer hover:shadow-2xl">
                                                     <div className="tape-strip top-[-10px] w-16 left-1/2 -translate-x-1/2"></div>
@@ -207,7 +208,7 @@ export default function HomePage() {
                                                         isSticky ? `${stickyColor} p-6 w-[220px] aspect-square flex flex-col justify-center rounded-bl-3xl` 
                                                                  : 'polaroid w-[240px]'
                                                     }`}
-                                                    onClick={() => 'type' in item ? handlePlaylistClick(item as Playlist) : null}
+                                                    onClick={() => section.type === 'playlists' ? handlePlaylistClick(item as Playlist) : playQueue(section.items as Song[], j)}
                                                 >
                                                     {!isSticky && <div className="tape-strip top-[-10px]"></div>}
                                                     {isSticky && <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-600 shadow-md"></div>}
