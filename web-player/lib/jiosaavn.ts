@@ -232,6 +232,11 @@ export async function fetchHomePageData(): Promise<HomeSection[]> {
     const data = await apiRequest(ENDPOINTS.homeData);
     const sections: HomeSection[] = [];
 
+    // Debug: log top-level keys from JioSaavn response
+    console.log("[Home] JioSaavn response keys:", Object.keys(data));
+    console.log("[Home] new_trending type:", typeof data.new_trending, Array.isArray(data.new_trending) ? `(${(data.new_trending as unknown[]).length} items)` : "");
+    console.log("[Home] charts type:", typeof data.charts, Array.isArray(data.charts) ? `(${(data.charts as unknown[]).length} items)` : "");
+
     // Trending songs
     if (Array.isArray(data.new_trending)) {
         const songs = (data.new_trending as ApiSong[])

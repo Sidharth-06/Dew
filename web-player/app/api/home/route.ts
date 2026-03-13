@@ -6,11 +6,9 @@ export const preferredRegion = "bom1";
 export async function GET() {
     try {
         const sections = await fetchHomePageData();
-        return NextResponse.json({ sections });
+        return NextResponse.json({ sections, _debug: { count: sections.length, region: process.env.VERCEL_REGION } });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("[API] Home page data error:", errorMessage);
-        // Return empty sections instead of 500 so the UI degrades gracefully
-        return NextResponse.json({ sections: [], error: errorMessage });
+        return NextResponse.json({ sections: [], error: errorMessage, _debug: { region: process.env.VERCEL_REGION } });
     }
 }
