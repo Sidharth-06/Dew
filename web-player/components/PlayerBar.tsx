@@ -52,7 +52,7 @@ export default function PlayerBar() {
     if (!currentSong) {
         // Nav Pill fallback when nothing is playing (matching Image 1)
         return (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+            <div className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
                 <div className="bg-white rounded-[2rem] shadow-2xl border-t-[3px] border-gray-900 border px-6 sm:px-10 py-3 flex items-center gap-8 sm:gap-16 font-kalam text-gray-500">
                     <Link href="/" className={`flex flex-col items-center gap-1 hover:text-gray-900 transition-colors ${pathname === '/' ? 'text-orange-600' : ''}`}>
                         <div className={pathname === '/' ? "bg-orange-100 p-2 rounded-xl" : "p-2"}><Home className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={pathname === '/' ? 2.5 : 2}/></div>
@@ -84,7 +84,7 @@ export default function PlayerBar() {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 100, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="fixed bottom-6 w-full max-w-[800px] left-1/2 -translate-x-1/2 z-40 px-4"
+                className="fixed bottom-20 md:bottom-6 w-full max-w-[800px] left-1/2 -translate-x-1/2 z-40 px-4"
             >
                 {/* Float Pill Player (matching Image 3) */}
                 <div className="bg-white rounded-[1.5rem] shadow-2xl border border-gray-200 border-t-4 border-t-orange-500 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 font-kalam">
