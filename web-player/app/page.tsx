@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, Music } from "lucide-react";
 import SongCard from "@/components/SongCard";
@@ -26,18 +27,18 @@ interface Playlist {
   songCount?: number;
 }
 
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
   const { playQueue } = useAudio();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get("q") || "";
   const recentlyPlayedData = useLiveQuery(() => db.recentlyPlayed.orderBy('playedAt').reverse().toArray());
   const recentlyPlayed = recentlyPlayedData?.map(r => r.song) || [];
 
   const [sections, setSections] = useState<HomeSection[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
-  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -50,32 +51,26 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSearch = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
-
-      if (!query.trim()) {
-        setSearchResults([]);
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        setSearchResults(data.songs || []);
+      } catch (e) {
+        console.error("Search error:", e);
+      } finally {
         setIsSearching(false);
-        return;
       }
-
-      setIsSearching(true);
-      searchTimeout.current = setTimeout(async () => {
-        try {
-          const res = await fetch(
-            `/api/search?q=${encodeURIComponent(query)}`
-          );
-          const data = await res.json();
-          setSearchResults(data.songs || []);
-        } catch (e) {
-          console.error("Search error:", e);
-        }
-      }, 400);
-    },
-    []
-  );
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handlePlaylistClick = (playlist: Playlist) => {
     const type = (playlist.type === "album" ? "album" : "playlist");
@@ -237,5 +232,13 @@ export default function HomePage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function HomePage() {
+    return (
+        <Suspense>
+            <HomePageContent />
+        </Suspense>
     );
 }
