@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { fetchHomePageData } from "@/lib/jiosaavn";
 
+export const preferredRegion = "bom1";
+
 export async function GET() {
     try {
         const sections = await fetchHomePageData();

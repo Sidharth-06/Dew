@@ -1,5 +1,4 @@
-// saavn.dev — public JioSaavn API wrapper (works from Vercel / any server)
-const SAAVN_API = "https://saavn.dev";
+import crypto from "crypto";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,114 +24,202 @@ export interface Playlist {
     songCount?: number;
 }
 
-interface SaavnArtist {
-    name: string;
-}
+// ─── DES Decryption ──────────────────────────────────────────────────────────
+// JioSaavn encrypts stream URLs with DES-ECB. OpenSSL 3+ (Node 18+) disables
+// legacy DES, so we use 3DES with K1=K2=K3 which is mathematically identical.
+const DES_KEY = "38346591";
+const TRIPLE_DES_KEY = Buffer.from(DES_KEY.repeat(3), "utf8");
 
-interface SaavnImageItem {
-    quality: string;
-    url: string;
-}
-
-interface SaavnDownloadUrl {
-    quality: string;
-    url: string;
-}
-
-interface SaavnSong {
-    id: string;
-    name: string;
-    year?: string;
-    duration?: number;
-    language?: string;
-    hasLyrics?: boolean;
-    image?: SaavnImageItem[];
-    downloadUrl?: SaavnDownloadUrl[];
-    artists?: {
-        primary?: SaavnArtist[];
-        featured?: SaavnArtist[];
-        all?: SaavnArtist[];
-    };
-    album?: { name?: string };
-}
-
-interface SaavnPlaylist {
-    id: string;
-    name: string;
-    description?: string;
-    songCount?: number;
-    image?: SaavnImageItem[];
-    songs?: SaavnSong[];
+function decryptMediaUrl(encryptedUrl: string): string {
+    if (!encryptedUrl) return "";
+    try {
+        const encrypted = Buffer.from(encryptedUrl, "base64");
+        const decipher = crypto.createDecipheriv("des-ede3", TRIPLE_DES_KEY, null);
+        decipher.setAutoPadding(true);
+        let decrypted = decipher.update(encrypted, undefined, "utf8");
+        decrypted += decipher.final("utf8");
+        return decrypted
+            .replace(/\.mp4.*/, ".mp4")
+            .replace(/\.m4a.*/, ".m4a")
+            .replace(/^http:/, "https:");
+    } catch {
+        return "";
+    }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getBestImage(images?: SaavnImageItem[]): string {
-    if (!images?.length) return "";
-    return (
-        images.find((i) => i.quality === "500x500")?.url ||
-        images[images.length - 1].url
-    );
+function unescape(text: string | undefined | null): string {
+    if (!text) return "";
+    return text
+        .replace(/&amp;/g, "&")
+        .replace(/&#039;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
 }
 
-function formatSong(s: SaavnSong): Song | null {
-    try {
-        const artistNames =
-            s.artists?.primary?.map((a) => a.name) ||
-            s.artists?.featured?.map((a) => a.name) ||
-            s.artists?.all?.map((a) => a.name) ||
-            ["Unknown"];
+function getImageUrl(url: string, quality: "low" | "medium" | "high" = "high"): string {
+    const sizes: Record<string, string> = { low: "150x150", medium: "350x350", high: "500x500" };
+    return url.replace(/150x150|50x50/, sizes[quality]);
+}
 
-        const url =
-            s.downloadUrl?.find((d) => d.quality === "320kbps")?.url ||
-            s.downloadUrl?.[s.downloadUrl.length - 1]?.url ||
-            "";
+// ─── JioSaavn API ────────────────────────────────────────────────────────────
+
+const BASE_URL = "https://www.jiosaavn.com";
+const API_PATH = "/api.php?_format=json&_marker=0&api_version=4&ctx=web6dot0";
+
+const ENDPOINTS: Record<string, string> = {
+    homeData: "__call=webapi.getLaunchData",
+    topSearches: "__call=content.getTopSearches",
+    songDetails: "__call=song.getDetails",
+    playlistDetails: "__call=playlist.getDetails",
+    albumDetails: "__call=content.getAlbumDetails",
+    getResults: "__call=search.getResults",
+    getReco: "__call=reco.getreco",
+    autocomplete: "__call=autocomplete.get",
+};
+
+const HEADERS: Record<string, string> = {
+    "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    Accept: "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
+    Referer: "https://www.jiosaavn.com/",
+    Origin: "https://www.jiosaavn.com",
+    Cookie: "L=english; DL=english; gdpr_acceptance=true",
+    "X-Requested-With": "XMLHttpRequest",
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function apiRequest(params: string, usev4 = true): Promise<any> {
+    const path = usev4 ? `${API_PATH}&${params}` : `${API_PATH}&${params}`.replace("&api_version=4", "");
+    const url = `${BASE_URL}${path}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
+        const res = await fetch(url, {
+            headers: HEADERS,
+            signal: controller.signal,
+            cache: "no-store",
+        });
+
+        if (!res.ok) {
+            throw new Error(`JioSaavn API ${res.status}`);
+        }
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("json") && !contentType.includes("javascript")) {
+            throw new Error("JioSaavn returned non-JSON (likely blocked)");
+        }
+
+        return await res.json();
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+// ─── Song Formatting ─────────────────────────────────────────────────────────
+
+interface Artist { name: string }
+interface ArtistMap { primary_artists?: Artist[]; featured_artists?: Artist[]; artists?: Artist[] }
+interface MoreInfo {
+    artistMap?: ArtistMap;
+    album?: string;
+    duration?: string;
+    encrypted_media_url?: string;
+    has_lyrics?: boolean | string;
+    music?: string;
+    "320kbps"?: string | boolean;
+    [key: string]: unknown;
+}
+interface ApiSong {
+    id: string;
+    title: string;
+    image?: string;
+    year?: string;
+    language?: string;
+    type?: string;
+    more_info?: MoreInfo;
+}
+interface ApiPlaylist {
+    id: string;
+    title: string;
+    image?: string;
+    subtitle?: string;
+    description?: string;
+    type?: string;
+    more_info?: { song_count?: string; [key: string]: unknown };
+}
+
+function formatSong(s: ApiSong): Song | null {
+    try {
+        const info = s.more_info || {};
+        const map = info.artistMap || {};
+
+        const artists =
+            (map.primary_artists?.length ? map.primary_artists : null) ??
+            (map.featured_artists?.length ? map.featured_artists : null) ??
+            (map.artists?.length ? map.artists : null);
+
+        const artistStr = artists
+            ? artists.map((a) => a.name).join(", ")
+            : info.music
+              ? String(info.music)
+              : "Unknown";
+
+        let audioUrl = "";
+        if (info.encrypted_media_url) {
+            audioUrl = decryptMediaUrl(String(info.encrypted_media_url));
+            if (info["320kbps"] === "true" || info["320kbps"] === true) {
+                audioUrl = audioUrl.replace("_96.mp4", "_320.mp4");
+            }
+        }
 
         return {
             id: s.id,
-            title: s.name || "",
-            artist: artistNames.join(", "),
-            album: s.album?.name || "",
-            image: getBestImage(s.image),
-            duration: s.duration || 0,
-            url,
+            title: unescape(s.title),
+            artist: unescape(artistStr),
+            album: unescape(String(info.album || "")),
+            image: getImageUrl(s.image || ""),
+            duration: parseInt(String(info.duration || "0"), 10),
+            url: audioUrl,
             year: s.year,
             language: s.language,
-            hasLyrics: s.hasLyrics,
+            hasLyrics: info.has_lyrics === "true" || info.has_lyrics === true,
         };
     } catch {
         return null;
     }
 }
 
-async function saavnGet<T>(path: string, revalidate = 300): Promise<T> {
-    const res = await fetch(`${SAAVN_API}${path}`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate },
-    });
-    if (!res.ok) {
-        throw new Error(`saavn.dev ${res.status} for ${path}`);
+function formatPlaylist(p: ApiPlaylist): Playlist | null {
+    try {
+        return {
+            id: p.id,
+            title: unescape(p.title),
+            image: getImageUrl(p.image || ""),
+            subtitle: unescape(p.subtitle || p.description || ""),
+            type: p.type || "playlist",
+            songCount: p.more_info?.song_count ? parseInt(p.more_info.song_count, 10) : undefined,
+        };
+    } catch {
+        return null;
     }
-    const json = await res.json();
-    if (json.data === undefined) {
-        throw new Error(`saavn.dev: unexpected response for ${path}`);
-    }
-    return json.data as T;
 }
 
-// ─── Public API Functions ────────────────────────────────────────────────────
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 export async function searchSongs(query: string, count = 20): Promise<Song[]> {
-    const data = await saavnGet<{ results: SaavnSong[] }>(
-        `/api/search/songs?query=${encodeURIComponent(query)}&limit=${count}`,
-        60
-    );
-    return (data.results || []).map(formatSong).filter(Boolean) as Song[];
+    const data = await apiRequest(`p=1&q=${encodeURIComponent(query)}&n=${count}&${ENDPOINTS.getResults}`);
+    return ((data.results as ApiSong[]) || []).map(formatSong).filter(Boolean) as Song[];
 }
 
 export async function getSongDetails(songId: string): Promise<Song | null> {
-    const data = await saavnGet<SaavnSong[]>(`/api/songs?id=${songId}`, 3600);
-    return data?.[0] ? formatSong(data[0]) : null;
+    const data = await apiRequest(`pids=${songId}&${ENDPOINTS.songDetails}`);
+    return data.songs?.[0] ? formatSong(data.songs[0]) : null;
 }
 
 interface HomeSection {
@@ -142,62 +229,34 @@ interface HomeSection {
 }
 
 export async function fetchHomePageData(): Promise<HomeSection[]> {
-    const [trendingRes, playlistsRes, albumsRes] = await Promise.allSettled([
-        saavnGet<{ results: SaavnSong[] }>(
-            `/api/search/songs?query=trending+hindi+2025&limit=20`,
-            600
-        ),
-        saavnGet<{ results: SaavnPlaylist[] }>(
-            `/api/search/playlists?query=top+charts&limit=10`,
-            600
-        ),
-        saavnGet<{ results: SaavnPlaylist[] }>(
-            `/api/search/albums?query=new+releases+2025&limit=10`,
-            600
-        ),
-    ]);
-
+    const data = await apiRequest(ENDPOINTS.homeData);
     const sections: HomeSection[] = [];
 
-    if (trendingRes.status === "fulfilled") {
-        const songs = (trendingRes.value.results || [])
+    // Trending songs
+    if (Array.isArray(data.new_trending)) {
+        const songs = (data.new_trending as ApiSong[])
+            .filter((i) => i.type === "song")
             .map(formatSong)
             .filter(Boolean) as Song[];
-        if (songs.length > 0) {
-            sections.push({ title: "Trending Now", type: "songs", items: songs });
-        }
+        if (songs.length > 0) sections.push({ title: "Trending Now", type: "songs", items: songs });
     }
 
-    if (playlistsRes.status === "fulfilled") {
-        const playlists = (playlistsRes.value.results || []).map(
-            (p): Playlist => ({
-                id: p.id,
-                title: p.name,
-                image: getBestImage(p.image),
-                subtitle: p.description,
-                type: "playlist",
-                songCount: p.songCount,
-            })
-        );
-        if (playlists.length > 0) {
-            sections.push({ title: "Top Playlists", type: "playlists", items: playlists });
-        }
+    // Charts
+    if (Array.isArray(data.charts)) {
+        const pls = (data.charts as ApiPlaylist[]).map(formatPlaylist).filter(Boolean) as Playlist[];
+        if (pls.length > 0) sections.push({ title: "Top Charts", type: "playlists", items: pls });
     }
 
-    if (albumsRes.status === "fulfilled") {
-        const playlists = (albumsRes.value.results || []).map(
-            (p): Playlist => ({
-                id: p.id,
-                title: p.name,
-                image: getBestImage(p.image),
-                subtitle: p.description,
-                type: "album",
-                songCount: p.songCount,
-            })
-        );
-        if (playlists.length > 0) {
-            sections.push({ title: "New Releases", type: "playlists", items: playlists });
-        }
+    // New albums
+    if (Array.isArray(data.new_albums)) {
+        const pls = (data.new_albums as ApiPlaylist[]).map(formatPlaylist).filter(Boolean) as Playlist[];
+        if (pls.length > 0) sections.push({ title: "New Releases", type: "playlists", items: pls });
+    }
+
+    // Top playlists
+    if (Array.isArray(data.top_playlists)) {
+        const pls = (data.top_playlists as ApiPlaylist[]).map(formatPlaylist).filter(Boolean) as Playlist[];
+        if (pls.length > 0) sections.push({ title: "Top Playlists", type: "playlists", items: pls });
     }
 
     return sections;
@@ -208,14 +267,14 @@ export async function fetchPlaylistSongs(playlistId: string): Promise<{
     title: string;
     image: string;
 }> {
-    const data = await saavnGet<SaavnPlaylist>(
-        `/api/playlists?id=${playlistId}`,
-        1800
-    );
+    const data = await apiRequest(`${ENDPOINTS.playlistDetails}&cc=in&listid=${playlistId}`);
+    const songs = Array.isArray(data.list)
+        ? ((data.list as ApiSong[]).map(formatSong).filter(Boolean) as Song[])
+        : [];
     return {
-        songs: (data.songs || []).map(formatSong).filter(Boolean) as Song[],
-        title: data.name || "",
-        image: getBestImage(data.image),
+        songs,
+        title: unescape(String(data.listname || data.title || "")),
+        image: getImageUrl(String(data.image || "")),
     };
 }
 
@@ -224,43 +283,60 @@ export async function fetchAlbumSongs(albumId: string): Promise<{
     title: string;
     image: string;
 }> {
-    const data = await saavnGet<SaavnPlaylist>(
-        `/api/albums?id=${albumId}`,
-        1800
-    );
+    const data = await apiRequest(`${ENDPOINTS.albumDetails}&cc=in&albumid=${albumId}`);
+    const songs = Array.isArray(data.list)
+        ? ((data.list as ApiSong[]).map(formatSong).filter(Boolean) as Song[])
+        : [];
     return {
-        songs: (data.songs || []).map(formatSong).filter(Boolean) as Song[],
-        title: data.name || "",
-        image: getBestImage(data.image),
+        songs,
+        title: unescape(String(data.title || "")),
+        image: getImageUrl(String(data.image || "")),
     };
 }
 
 export async function getSearchSuggestions(query: string): Promise<string[]> {
     try {
-        const data = await saavnGet<{ results: SaavnSong[] }>(
-            `/api/search/songs?query=${encodeURIComponent(query)}&limit=5`,
-            60
+        const data = await apiRequest(
+            `__call=autocomplete.get&cc=in&includeMetaTags=1&query=${encodeURIComponent(query)}`,
+            false
         );
-        return (data.results || []).map((s) => s.name).filter(Boolean);
+        const suggestions: string[] = [];
+        const extract = (arr: unknown[]) =>
+            arr.forEach((item: unknown) => {
+                if (typeof item === "object" && item !== null && "title" in item) {
+                    suggestions.push(unescape((item as Record<string, unknown>).title as string));
+                }
+            });
+
+        const topquery = (data.topquery as Record<string, unknown> | undefined)?.data;
+        if (Array.isArray(topquery)) extract(topquery);
+        const songsData = (data.songs as Record<string, unknown> | undefined)?.data;
+        if (Array.isArray(songsData)) extract(songsData);
+        const albumsData = (data.albums as Record<string, unknown> | undefined)?.data;
+        if (Array.isArray(albumsData)) extract(albumsData);
+
+        return [...new Set(suggestions)].slice(0, 10);
     } catch {
         return [];
     }
 }
 
 export async function getTopSearches(): Promise<string[]> {
+    try {
+        const data = await apiRequest(ENDPOINTS.topSearches);
+        if (Array.isArray(data)) {
+            return data.map((item: Record<string, unknown>) => String(item.title || "")).filter(Boolean);
+        }
+    } catch { /* empty */ }
     return [];
 }
 
 export async function getSongRecommendations(songId: string): Promise<Song[]> {
     try {
-        const data = await saavnGet<SaavnSong[]>(
-            `/api/songs/${songId}/suggestions?limit=10`,
-            300
-        );
-        return (Array.isArray(data) ? data : [])
-            .map(formatSong)
-            .filter(Boolean) as Song[];
-    } catch {
-        return [];
-    }
+        const data = await apiRequest(`${ENDPOINTS.getReco}&pid=${songId}`);
+        if (Array.isArray(data)) {
+            return data.map(formatSong).filter(Boolean) as Song[];
+        }
+    } catch { /* empty */ }
+    return [];
 }

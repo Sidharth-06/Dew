@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSongDetails } from "@/lib/jiosaavn";
 
+export const preferredRegion = "bom1";
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

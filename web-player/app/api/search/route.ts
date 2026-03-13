@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSongs } from "@/lib/jiosaavn";
 
+export const preferredRegion = "bom1";
+
 export async function GET(request: NextRequest) {
     const query = request.nextUrl.searchParams.get("q");
     if (!query) {
