@@ -33,11 +33,17 @@ export async function GET(request: Request) {
             const lrcRes = await fetch(`https://lrclib.net/api/search?q=${q}`, { cache: "no-store" });
             if (lrcRes.ok) {
                 const results = await lrcRes.json();
-                const match = Array.isArray(results) && results.find((r: { plainLyrics?: string }) => r.plainLyrics);
-                if (match?.plainLyrics) {
-                    // Convert plain text to <br> format to match existing rendering
-                    const lyrics = match.plainLyrics.replace(/\n/g, "<br>");
-                    return NextResponse.json({ lyrics });
+                if (Array.isArray(results) && results.length > 0) {
+                    const withSynced = results.find((r: { syncedLyrics?: string }) => r.syncedLyrics);
+                    const withPlain  = results.find((r: { plainLyrics?: string }) => r.plainLyrics);
+                    const match = withSynced || withPlain;
+                    if (match) {
+                        if (match.syncedLyrics) {
+                            return NextResponse.json({ syncedLyrics: match.syncedLyrics, lyrics: match.plainLyrics || "" });
+                        }
+                        const lyrics = match.plainLyrics.replace(/\n/g, "<br>");
+                        return NextResponse.json({ lyrics });
+                    }
                 }
             }
         } catch {

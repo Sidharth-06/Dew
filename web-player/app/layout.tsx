@@ -9,6 +9,7 @@ import { TopNav } from "@/components/TopNav";
 import { MobileNav } from "@/components/MobileNav";
 import { DatabaseMigrator } from "@/components/DatabaseMigrator";
 import { ApiStatusChecker } from "@/components/ApiStatusChecker";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -79,12 +80,13 @@ export default function RootLayout({
           <AudioProvider>
             <div className="flex flex-col h-[100dvh] w-full overflow-hidden relative z-10 pt-2">
               <TopNav />
-              <main className="flex-1 overflow-y-auto pb-44 md:pb-32 custom-scrollbar relative px-4 md:px-12 mt-4">
+              <main className="flex-1 overflow-y-auto pb-56 md:pb-32 custom-scrollbar relative px-4 md:px-12 mt-4">
                 {children}
               </main>
             </div>
             <MobileNav />
             <PlayerBar />
+            <KeyboardShortcuts />
             <ApiStatusChecker />
           </AudioProvider>
         </DatabaseMigrator>

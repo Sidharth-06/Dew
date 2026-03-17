@@ -38,7 +38,7 @@ export function TopNav() {
                 <div className="bg-orange-500 text-white p-1 rounded-sm shadow-sm group-hover:scale-110 transition-transform">
                     <Music4 className="w-5 h-5" />
                 </div>
-                <span className="text-xl font-bold tracking-tight text-gray-900">DOODLE MUSIC</span>
+                <span className="text-xl font-bold tracking-tight text-gray-900">DEW</span>
             </Link>
 
             {/* Search Bar */}
@@ -52,13 +52,7 @@ export function TopNav() {
                     </Suspense>
                 </div>
             </div>
-
-            {/* User Profile */}
-            <div className="flex items-center gap-4">
-                <button className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white shadow-md hover:scale-110 active:scale-95 transition-all outline outline-2 outline-offset-2 outline-transparent hover:outline-orange-300">
-                    <User className="w-5 h-5" />
-                </button>
-            </div>
+            
         </header>
     );
 }

@@ -6,6 +6,7 @@ import { db } from "@/lib/db/database";
 import { motion } from "framer-motion";
 import { Plus, Heart, Music, Mic2, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LibraryPage() {
     const router = useRouter();
@@ -129,28 +130,24 @@ export default function LibraryPage() {
 
                     {/* Custom Playlists */}
                     {(activeTab === "EVERYTHING" || activeTab === "PLAYLISTS") && customPlaylists?.map((playlist: any, i: number) => (
-                        <motion.div
-                            key={playlist.id}
-                            whileHover={{ scale: 1.05, zIndex: 50 }}
-                            style={{ transform: getRandomRotation(i + 1) }}
-                            className={`${stickyColors[i % stickyColors.length]} p-6 w-full max-w-[220px] aspect-square flex flex-col justify-end shadow-xl cursor-pointer relative rounded-bl-3xl border-t border-r border-white/20`}
-                        >
-                            {/* Random pin/star/doodle */}
-                            {i % 2 === 0 ? (
-                                <Star className="absolute top-4 right-4 w-5 h-5 text-gray-900" fill="currentColor" />
-                            ) : (
-                                <div className="absolute top-4 right-4 w-3 h-3 bg-red-600 rounded-full shadow-[2px_2px_4px_rgba(0,0,0,0.5)]"></div>
-                            )}
-
-                            <button onClick={(e) => deleteCustomPlaylist(playlist.id, e)} className="absolute top-4 left-4 text-gray-900/50 hover:text-gray-900 font-sans text-xs font-bold">
-                                ✕
-                            </button>
-
-                            <div className="text-gray-900 font-caveat w-full overflow-hidden">
-                                <h3 className="text-3xl font-bold leading-tight uppercase line-clamp-2 break-words">{playlist.title}</h3>
-                                <p className="text-lg mt-2 text-gray-800 truncate">{playlist.songs.length} tracks - Custom</p>
-                            </div>
-                        </motion.div>
+                        <Link key={playlist.id} href={`/library/${playlist.id}`}>
+                            <motion.div
+                                whileHover={{ scale: 1.05, zIndex: 50 }}
+                                style={{ transform: getRandomRotation(i + 1) }}
+                                className={`${stickyColors[i % stickyColors.length]} p-6 w-full max-w-[220px] aspect-square flex flex-col justify-end shadow-xl cursor-pointer relative rounded-bl-3xl border-t border-r border-white/20`}
+                            >
+                                {i % 2 === 0 ? (
+                                    <Star className="absolute top-4 right-4 w-5 h-5 text-gray-900" fill="currentColor" />
+                                ) : (
+                                    <div className="absolute top-4 right-4 w-3 h-3 bg-red-600 rounded-full shadow-[2px_2px_4px_rgba(0,0,0,0.5)]" />
+                                )}
+                                <button onClick={(e) => deleteCustomPlaylist(playlist.id, e)} className="absolute top-4 left-4 text-gray-900/50 hover:text-gray-900 font-sans text-xs font-bold">✕</button>
+                                <div className="text-gray-900 font-caveat w-full overflow-hidden">
+                                    <h3 className="text-3xl font-bold leading-tight uppercase line-clamp-2 break-words">{playlist.title}</h3>
+                                    <p className="text-lg mt-2 text-gray-800 truncate">{playlist.songs.length} tracks - Custom</p>
+                                </div>
+                            </motion.div>
+                        </Link>
                     ))}
 
                     {/* Recently Played / ALBUMS (Polaroids) */}

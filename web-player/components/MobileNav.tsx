@@ -2,42 +2,54 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, Library } from "lucide-react";
+import { Home, Compass, ListMusic, User } from "lucide-react";
 
 export function MobileNav() {
     const pathname = usePathname();
 
     return (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-white/5 pb-safe pt-2 px-6">
-            <div className="flex justify-between items-center max-w-sm mx-auto h-16">
+        <div className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-xs">
+            <div className="bg-white rounded-[2rem] shadow-2xl border-t-[3px] border-gray-900 border px-6 py-3 flex items-center justify-between font-kalam text-gray-500">
                 <Link
                     href="/"
-                    className={`flex flex-col items-center gap-1 transition-colors ${pathname === "/" ? "text-white" : "text-white/40 hover:text-white/80"
-                        }`}
+                    className={`flex flex-col items-center gap-1 hover:text-gray-900 transition-colors ${pathname === "/" ? "text-orange-600" : ""}`}
                 >
-                    <Home className="w-6 h-6" />
-                    <span className="text-[10px] font-medium tracking-wide">Home</span>
+                    <div className={pathname === "/" ? "bg-orange-100 p-2 rounded-xl" : "p-2"}>
+                        <Home className="w-5 h-5" strokeWidth={pathname === "/" ? 2.5 : 2} />
+                    </div>
+                    <span className={`text-xs font-bold ${pathname === "/" ? "text-gray-900" : ""}`}>Home</span>
                 </Link>
 
-                {/* Search maps to home page focusing search input */}
                 <Link
-                    href="/"
-                    className={`flex flex-col items-center gap-1 transition-colors ${pathname === "/search" ? "text-white" : "text-white/40 hover:text-white/80"
-                        }`}
+                    href="/discover"
+                    className={`flex flex-col items-center gap-1 hover:text-gray-900 transition-colors ${pathname === "/discover" ? "text-orange-600" : ""}`}
                 >
-                    <Search className="w-6 h-6" />
-                    <span className="text-[10px] font-medium tracking-wide">Search</span>
+                    <div className={pathname === "/discover" ? "bg-orange-100 p-2 rounded-xl" : "p-2"}>
+                        <Compass className="w-5 h-5" strokeWidth={pathname === "/discover" ? 2.5 : 2} />
+                    </div>
+                    <span className={`text-xs font-bold ${pathname === "/discover" ? "text-gray-900" : ""}`}>Discover</span>
                 </Link>
 
                 <Link
                     href="/library"
-                    className={`flex flex-col items-center gap-1 transition-colors ${pathname.startsWith("/library") ? "text-white" : "text-white/40 hover:text-white/80"
-                        }`}
+                    className={`flex flex-col items-center gap-1 hover:text-gray-900 transition-colors ${pathname === "/library" ? "text-orange-600" : ""}`}
                 >
-                    <Library className="w-6 h-6" />
-                    <span className="text-[10px] font-medium tracking-wide">Library</span>
+                    <div className={pathname === "/library" ? "bg-orange-100 p-2 rounded-xl" : "p-2"}>
+                        <ListMusic className="w-5 h-5" strokeWidth={pathname === "/library" ? 2.5 : 2} />
+                    </div>
+                    <span className={`text-xs font-bold ${pathname === "/library" ? "text-gray-900" : ""}`}>Library</span>
+                </Link>
+
+                <Link
+                    href="/me"
+                    className={`flex flex-col items-center gap-1 hover:text-gray-900 transition-colors ${pathname === "/me" ? "text-orange-600" : ""}`}
+                >
+                    <div className={pathname === "/me" ? "bg-orange-100 p-2 rounded-xl" : "p-2"}>
+                        <User className="w-5 h-5" strokeWidth={pathname === "/me" ? 2.5 : 2} />
+                    </div>
+                    <span className={`text-xs font-bold ${pathname === "/me" ? "text-gray-900" : ""}`}>Me</span>
                 </Link>
             </div>
-        </nav>
+        </div>
     );
 }

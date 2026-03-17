@@ -137,6 +137,33 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
+/* ─── Scrollbar hide utility ──────────────────────────── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Background Doodle Animations ───────────────────── */
+@keyframes doodle-float {
+  0%, 100% { transform: translateY(0px) rotate(var(--doodle-rot, 0deg)); opacity: var(--doodle-op, 0.08); }
+  50%       { transform: translateY(-22px) rotate(calc(var(--doodle-rot, 0deg) + 6deg)); opacity: calc(var(--doodle-op, 0.08) * 1.8); }
+}
+
+@keyframes doodle-sway {
+  0%, 100% { transform: rotate(var(--doodle-rot, 0deg)) scale(1); opacity: var(--doodle-op, 0.07); }
+  33%       { transform: rotate(calc(var(--doodle-rot, 0deg) - 8deg)) scale(1.04); opacity: calc(var(--doodle-op, 0.07) * 1.6); }
+  66%       { transform: rotate(calc(var(--doodle-rot, 0deg) + 8deg)) scale(0.97); opacity: var(--doodle-op, 0.07); }
+}
+
+@keyframes doodle-drift {
+  0%, 100% { transform: translateX(0px) translateY(0px) rotate(var(--doodle-rot, 0deg)); opacity: var(--doodle-op, 0.06); }
+  25%       { transform: translateX(10px) translateY(-12px) rotate(calc(var(--doodle-rot, 0deg) + 5deg)); opacity: calc(var(--doodle-op, 0.06) * 2); }
+  75%       { transform: translateX(-8px) translateY(-6px) rotate(calc(var(--doodle-rot, 0deg) - 4deg)); opacity: calc(var(--doodle-op, 0.06) * 1.5); }
+}
+
 /* ─── PWA Standalone Mode ─────────────────────────────── */
 @media all and (display-mode: standalone) {
   body {

@@ -26,11 +26,17 @@ export interface PlaylistSong {
     addedAt: number;
 }
 
+export interface UserSetting {
+    key: string;   // primary key — e.g. "profilePicture", "displayName"
+    value: string; // stringified or base64 dataURL
+}
+
 export class DewDatabase extends Dexie {
     likedSongs!: Table<LikedSong, string>;
-    recentlyPlayed!: Table<RecentlyPlayed, string>; // Using string (songId) as primary key to ensure uniqueness
+    recentlyPlayed!: Table<RecentlyPlayed, string>;
     playlists!: Table<Playlist, string>;
-    playlistSongs!: Table<PlaylistSong, [string, string]>; // Compound primary key [playlistId, songId]
+    playlistSongs!: Table<PlaylistSong, [string, string]>;
+    settings!: Table<UserSetting, string>;
 
     constructor() {
         super('DewMusicDB');
@@ -39,6 +45,13 @@ export class DewDatabase extends Dexie {
             recentlyPlayed: 'songId, playedAt',
             playlists: 'id, title, createdAt',
             playlistSongs: '[playlistId+songId], playlistId, songId, addedAt'
+        });
+        this.version(2).stores({
+            likedSongs: 'songId, addedAt',
+            recentlyPlayed: 'songId, playedAt',
+            playlists: 'id, title, createdAt',
+            playlistSongs: '[playlistId+songId], playlistId, songId, addedAt',
+            settings: 'key'
         });
     }
 }

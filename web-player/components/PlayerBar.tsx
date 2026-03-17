@@ -1,7 +1,7 @@
 "use client";
 
 import { useAudio } from "./AudioProvider";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,13 +9,11 @@ import {
     Pause,
     SkipForward,
     SkipBack,
-    Volume2,
-    VolumeX,
     ListMusic,
-    ChevronUp,
     Home,
     Compass,
-    User
+    User,
+    Moon,
 } from "lucide-react";
 import NowPlaying from "./NowPlaying";
 import QueueDrawer from "./QueueDrawer";
@@ -34,23 +32,61 @@ export default function PlayerBar() {
         isPlaying,
         progress,
         duration,
-        volume,
         togglePlay,
         seek,
-        setVolume,
         skipNext,
         skipPrevious,
-        playQueue,
-        queueIndex,
     } = useAudio();
 
     const pathname = usePathname();
     const [showNowPlaying, setShowNowPlaying] = useState(false);
     const [showQueue, setShowQueue] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
+
+    // Sleep timer
+    const SLEEP_OPTIONS = [0, 15, 30, 60]; // minutes; 0 = off
+    const [sleepMinutes, setSleepMinutes] = useState(0);
+    const [sleepEndsAt, setSleepEndsAt] = useState<number | null>(null);
+    const [sleepOptIdx, setSleepOptIdx] = useState(0);
+
+    const cycleSleep = () => {
+        const next = (sleepOptIdx + 1) % SLEEP_OPTIONS.length;
+        setSleepOptIdx(next);
+        const mins = SLEEP_OPTIONS[next];
+        setSleepMinutes(mins);
+        if (mins === 0) {
+            setSleepEndsAt(null);
+        } else {
+            setSleepEndsAt(Date.now() + mins * 60 * 1000);
+        }
+    };
+
+    // Check sleep timer
+    useEffect(() => {
+        if (!sleepEndsAt) return;
+        const id = setInterval(() => {
+            if (Date.now() >= sleepEndsAt) {
+                togglePlay();
+                setSleepEndsAt(null);
+                setSleepMinutes(0);
+                setSleepOptIdx(0);
+                clearInterval(id);
+            }
+        }, 5000);
+        return () => clearInterval(id);
+    }, [sleepEndsAt, togglePlay]);
+
+    // Seeker drag state
+    const seekBarRef = useRef<HTMLDivElement>(null);
+    const [isScrubbing, setIsScrubbing] = useState(false);
+    const [scrubPct, setScrubPct] = useState(0);
+
+    const getPct = (clientX: number): number => {
+        if (!seekBarRef.current) return 0;
+        const rect = seekBarRef.current.getBoundingClientRect();
+        return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    };
 
     if (!currentSong) {
-        // Nav Pill fallback when nothing is playing (matching Image 1)
         return (
             <div className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
                 <div className="bg-white rounded-[2rem] shadow-2xl border-t-[3px] border-gray-900 border px-6 sm:px-10 py-3 flex items-center gap-8 sm:gap-16 font-kalam text-gray-500">
@@ -76,6 +112,8 @@ export default function PlayerBar() {
     }
 
     const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
+    const displayPct = isScrubbing ? scrubPct * 100 : progressPercent;
+    const displayProgress = isScrubbing ? scrubPct * duration : progress;
 
     return (
         <AnimatePresence>
@@ -84,13 +122,12 @@ export default function PlayerBar() {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 100, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="fixed bottom-20 md:bottom-6 w-full max-w-[800px] left-1/2 -translate-x-1/2 z-40 px-4"
+                className="fixed bottom-28 md:bottom-6 w-full max-w-[800px] left-1/2 -translate-x-1/2 z-40 px-4"
             >
-                {/* Float Pill Player (matching Image 3) */}
                 <div className="bg-white rounded-[1.5rem] shadow-2xl border border-gray-200 border-t-4 border-t-orange-500 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 font-kalam">
-                    
+
                     {/* Left: Album & Info */}
-                    <div 
+                    <div
                         className="flex items-center gap-4 flex-1 w-full min-w-0 cursor-pointer group"
                         onClick={() => setShowNowPlaying(true)}
                     >
@@ -125,25 +162,70 @@ export default function PlayerBar() {
                         </button>
                     </div>
 
-                    {/* Right: Progress */}
+                    {/* Right: Seeker */}
                     <div className="flex items-center gap-2 flex-1 w-full text-xs font-mono font-bold text-gray-600">
-                        <span>{formatTime(progress)}</span>
-                        <div className="relative flex-1 h-3 group"
-                             onClick={(e) => {
-                                 const rect = e.currentTarget.getBoundingClientRect();
-                                 const x = e.clientX - rect.left;
-                                 seek((x / rect.width) * duration);
-                             }}
+                        <span className="tabular-nums w-8 text-right">{formatTime(displayProgress)}</span>
+
+                        {/* Seek track */}
+                        <div
+                            ref={seekBarRef}
+                            className="relative flex-1 h-5 group cursor-pointer select-none"
+                            style={{ touchAction: 'none' }}
+                            onPointerDown={(e) => {
+                                e.currentTarget.setPointerCapture(e.pointerId);
+                                const pct = getPct(e.clientX);
+                                setIsScrubbing(true);
+                                setScrubPct(pct);
+                            }}
+                            onPointerMove={(e) => {
+                                if (!isScrubbing) return;
+                                setScrubPct(getPct(e.clientX));
+                            }}
+                            onPointerUp={(e) => {
+                                if (!isScrubbing) return;
+                                seek(getPct(e.clientX) * duration);
+                                setIsScrubbing(false);
+                            }}
+                            onPointerCancel={() => setIsScrubbing(false)}
                         >
-                            {/* Sketchy line base */}
-                            <div className="absolute inset-y-1 left-0 right-0 bg-gray-200 rounded-full cursor-pointer overflow-hidden border border-gray-300">
-                                <div 
-                                    className="h-full bg-orange-500 relative transition-all duration-100"
-                                    style={{ width: `${progressPercent}%` }}
+                            {/* Track fill */}
+                            <div className={`absolute inset-x-0 rounded-full overflow-hidden border border-gray-300 bg-gray-200 transition-all duration-150 ${isScrubbing ? 'top-1 bottom-1' : 'top-1.5 bottom-1.5 group-hover:top-1 group-hover:bottom-1'}`}>
+                                <div
+                                    className="h-full bg-orange-500"
+                                    style={{ width: `${displayPct}%`, transition: isScrubbing ? 'none' : 'width 0.1s linear' }}
                                 />
                             </div>
+                            {/* Thumb */}
+                            <div
+                                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-orange-500 border-2 border-white shadow-md pointer-events-none transition-opacity duration-150 ${isScrubbing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                style={{ left: `${displayPct}%` }}
+                            />
                         </div>
-                        <span>{formatTime(duration)}</span>
+
+                        <span className="tabular-nums w-8">{formatTime(duration)}</span>
+
+                        {/* Queue + Sleep timer (desktop only) */}
+                        <div className="hidden sm:flex items-center gap-1 ml-1">
+                            {/* Sleep timer */}
+                            <button
+                                onClick={cycleSleep}
+                                title={sleepMinutes > 0 ? `Sleep in ${sleepMinutes}m` : "Sleep timer off"}
+                                className={`relative p-1.5 rounded-lg transition-colors ${sleepMinutes > 0 ? "text-orange-500 bg-orange-50" : "text-gray-400 hover:text-gray-700"}`}
+                            >
+                                <Moon className="w-4 h-4" />
+                                {sleepMinutes > 0 && (
+                                    <span className="absolute -top-1 -right-1 text-[9px] font-bold bg-orange-500 text-white rounded-full px-1 leading-tight">{sleepMinutes}</span>
+                                )}
+                            </button>
+                            {/* Queue */}
+                            <button
+                                onClick={() => setShowQueue(true)}
+                                title="View queue"
+                                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg transition-colors"
+                            >
+                                <ListMusic className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                 </div>

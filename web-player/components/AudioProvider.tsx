@@ -187,10 +187,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
                     { src: song.image, sizes: "500x500", type: "image/jpeg" },
                 ],
             });
-            navigator.mediaSession.setActionHandler("play", () => togglePlay());
-            navigator.mediaSession.setActionHandler("pause", () => togglePlay());
-            navigator.mediaSession.setActionHandler("previoustrack", () => skipPrevious());
-            navigator.mediaSession.setActionHandler("nexttrack", () => skipNext());
         }
     };
 
@@ -249,6 +245,33 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             return prev - 1;
         });
     }, [queue.length, repeat]);
+
+    // Keep Media Session action handlers fresh so OS notification controls always work
+    useEffect(() => {
+        if (!("mediaSession" in navigator)) return;
+        navigator.mediaSession.setActionHandler("play", togglePlay);
+        navigator.mediaSession.setActionHandler("pause", togglePlay);
+        navigator.mediaSession.setActionHandler("previoustrack", skipPrevious);
+        navigator.mediaSession.setActionHandler("nexttrack", skipNext);
+    }, [togglePlay, skipNext, skipPrevious]);
+
+    // Reflect play/pause state to OS (updates the play/pause icon in notification)
+    useEffect(() => {
+        if (!("mediaSession" in navigator)) return;
+        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    }, [isPlaying]);
+
+    // Push position state so the OS notification scrubber stays accurate
+    useEffect(() => {
+        if (!("mediaSession" in navigator) || !duration) return;
+        try {
+            navigator.mediaSession.setPositionState({
+                duration,
+                playbackRate: 1,
+                position: Math.min(progress, duration),
+            });
+        } catch { /* browser may reject if duration is 0 */ }
+    }, [progress, duration]);
 
     const toggleShuffle = useCallback(() => {
         setShuffle((prev) => !prev);
